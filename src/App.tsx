@@ -10,7 +10,8 @@ import MainContent from './components/MainContent';
 import SignInScreen from './components/SignInScreen';
 
 interface ApiResponse {
-  answer: string;
+  answer?: string; // 既存チャットの場合はanswerが返る (オプショナル)
+  newChat?: ChatThread; // 新規チャットの場合はnewChatが返る (オプショナル)
 }
 
 function App() {
@@ -45,6 +46,34 @@ function App() {
   // これらの状態が変わるたびにエフェクトを再実行
 
 
+  // --- ▼▼▼ 認証後にDBから履歴を読み込むuseEffect ▼▼▼ ---
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (auth.isAuthenticated && auth.user?.id_token) {
+        setIsLoading(true);
+        try {
+          const apiEndpoint = import.meta.env.VITE_APP_API_ENDPOINT;
+          const res = await fetch(apiEndpoint, {
+            method: 'GET', // GETリクエスト
+            headers: {
+              'Authorization': `Bearer ${auth.user.id_token}`
+            }
+          });
+          if (!res.ok) throw new Error('Failed to fetch history');
+          
+          const historyData: ChatThread[] = await res.json();
+          setChats(historyData);
+        } catch (error) {
+          console.error("履歴の取得に失敗しました:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    fetchHistory();
+  }, [auth.isAuthenticated, auth.user?.id_token]); // 認証状態が変わったら実行
+
+
   const handleSignOut = async () => {
     await auth.removeUser();
     const clientId = "370ul24957c9akfm11j1eelooj";
@@ -61,53 +90,54 @@ function App() {
     const currentPrompt = prompt; // 後で使うために保持
     setPrompt(''); // 入力欄をクリア
 
-    let targetChatId = activeChatId;
-
-    // 新規チャットの場合
-    if (activeChatId === null) {
-      const newChatId = Date.now().toString();
-      const newChat: ChatThread = {
-        id: newChatId,
-        title: currentPrompt.substring(0, 20), // プロンプトの先頭をタイトルに
-        messages: [userMessage],
-      };
+    // --- 楽観的UI更新 ---
+    const isNewChat = activeChatId === null;
+    let tempChatId: string | null = null;
+    
+    if (isNewChat) {
+      tempChatId = "temp-" + Date.now().toString();
+      const newChat: ChatThread = { id: tempChatId, title: currentPrompt.substring(0, 20), messages: [userMessage] };
       setChats(prev => [newChat, ...prev]);
-      setActiveChatId(newChatId);
-      targetChatId = newChatId;
+      setActiveChatId(tempChatId);
     } else {
-      // 既存チャットにメッセージを追加
       setChats(prev => prev.map(chat => 
         chat.id === activeChatId ? { ...chat, messages: [...chat.messages, userMessage] } : chat
       ));
     }
+    // ---
 
     try {
       const apiEndpoint = import.meta.env.VITE_APP_API_ENDPOINT;
       const res = await fetch(apiEndpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.user?.id_token}`
-        },
-        body: JSON.stringify({ user_prompt: currentPrompt }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.user?.id_token}` },
+        body: JSON.stringify({ user_prompt: currentPrompt, chat_id: activeChatId }),
       });
       if (!res.ok) { throw new Error(`HTTP error! status: ${res.status}`); }
       
       const data: ApiResponse = await res.json();
-      const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: data.answer };
 
-      // 対応するチャットにAIの応答を追加
-      setChats(prev => prev.map(chat => 
-        chat.id === targetChatId ? { ...chat, messages: [...chat.messages, assistantMessage] } : chat
-      ));
+      // ▼▼▼ API応答のハンドリングを修正 ▼▼▼
+      if (data.newChat) { // 新規チャットの場合
+        const newChatFromDB: ChatThread = data.newChat;
+        // 一時的なチャットを、DBから返ってきた本物のチャットに置き換える
+        setChats(prev => prev.map(chat => chat.id === tempChatId ? newChatFromDB : chat));
+        // activeChatIdも本物のIDに更新
+        setActiveChatId(newChatFromDB.id);
+      } else if (data.answer) { // 既存チャットの場合
+        const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: data.answer };
+        setChats(prev => prev.map(chat => 
+          chat.id === activeChatId ? { ...chat, messages: [...chat.messages, assistantMessage] } : chat
+        ));
+      }
 
     } catch (err: any) {
+      // エラーが発生した場合、一時的なチャットを削除するなどの後処理も可能
       console.error(err);
-      const errorMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: `エラーが発生しました: ${err.message}` };
-      // エラーメッセージをチャットに追加
-      setChats(prev => prev.map(chat => 
-        chat.id === targetChatId ? { ...chat, messages: [...chat.messages, errorMessage] } : chat
-      ));
+      if (tempChatId) {
+        setChats(prev => prev.filter(chat => chat.id !== tempChatId));
+        setActiveChatId(null);
+      }
     } finally {
       setIsLoading(false);
     }
