@@ -1,6 +1,6 @@
 // src/components/MainContent.tsx
 import React, { useRef, useState, useLayoutEffect } from 'react';
-import { LuSendHorizontal, LuUser, LuBot, LuCopy } from 'react-icons/lu';
+import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuArrowDown } from 'react-icons/lu';
 import TextareaAutosize from 'react-textarea-autosize';
 
 // 型定義
@@ -32,18 +32,39 @@ const MainContent: React.FC<MainContentProps> = ({
 }) => {
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
   // ★★★ここが修正のポイント★★★
-  // useLayoutEffectの依存配列に `isLoading` を戻します。
-  // これにより、ローディングスピナーの表示/非表示でもスクロールが正しく実行されます。
+  // 全ての複雑な条件分岐をなくし、最もシンプルで確実なスクロール処理に戻します。
   useLayoutEffect(() => {
     const chatArea = chatAreaRef.current;
     if (chatArea) {
+      // メッセージが更新されるか、ローディング状態が変わるたびに、常に一番下へスクロールします。
       chatArea.scrollTop = chatArea.scrollHeight;
     }
-  }, [messages, isLoading]); // ← ここに isLoading を戻しました
+  }, [messages, isLoading]); // 依存配列に messages と isLoading を指定
 
 
+  // 「一番下に移動」ボタンの表示/非表示ロジックは、このままでも問題ありません。
+  // （ただし、常に自動スクロールするため、ボタンが表示される機会は減ります）
+  const handleScroll = () => {
+    const chatArea = chatAreaRef.current;
+    if (!chatArea) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatArea;
+    const isScrolledUp = scrollHeight - scrollTop > clientHeight + 200;
+    setShowScrollToBottom(isScrolledUp);
+  };
+
+  const scrollToBottom = () => {
+    const chatArea = chatAreaRef.current;
+    if (chatArea) {
+      chatArea.scrollTo({
+        top: chatArea.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+  
   const handleCopy = async (textToCopy: string, messageId: string) => {
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -51,8 +72,7 @@ const MainContent: React.FC<MainContentProps> = ({
       setTimeout(() => {
         setCopiedId(null);
       }, 2000);
-    } catch (err)
- {
+    } catch (err) {
       console.error('クリップボードへのコピーに失敗しました:', err);
       alert('コピーに失敗しました。');
     }
@@ -116,10 +136,16 @@ const MainContent: React.FC<MainContentProps> = ({
   return (
     <main className="main-content">
       <div className="chat-area-wrapper">
-        <div className="chat-area" ref={chatAreaRef}>
+        <div className="chat-area" ref={chatAreaRef} onScroll={handleScroll}>
           {messages.map(renderMessage)}
           {isLoading && renderLoading()}
         </div>
+        
+        {showScrollToBottom && (
+          <button className="scroll-to-bottom-button" onClick={scrollToBottom} title="一番下へ移動">
+            <LuArrowDown />
+          </button>
+        )}
         
         <div className="prompt-input-wrapper">
           <div className="prompt-input-container">
