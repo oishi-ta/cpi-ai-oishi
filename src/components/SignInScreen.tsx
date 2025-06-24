@@ -1,5 +1,4 @@
 // src/components/SignInScreen.tsx
-
 import React from 'react';
 
 interface SignInScreenProps {

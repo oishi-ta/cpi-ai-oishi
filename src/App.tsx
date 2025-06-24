@@ -1,63 +1,34 @@
 // src/App.tsx
-
 import { useState, useEffect } from 'react';
 import { useAuth } from "react-oidc-context";
 import './App.css';
 
 // コンポーネントと型をインポート
-import Sidebar, { type ChatThread, type Message } from './components/Sidebar';
-import MainContent from './components/MainContent';
+import Sidebar from './components/Sidebar';
+import MainContent, { type ChatThread, type Message } from './components/MainContent';
 import SignInScreen from './components/SignInScreen';
 
 interface ApiResponse {
-  answer?: string; // 既存チャットの場合はanswerが返る (オプショナル)
-  newChat?: ChatThread; // 新規チャットの場合はnewChatが返る (オプショナル)
+  answer?: string;
+  newChat?: ChatThread;
 }
 
 function App() {
   const auth = useAuth();
   
-  const [prompt, setPrompt] = useState<string>(''); // 入力フォーム専用
+  const [prompt, setPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [chats, setChats] = useState<ChatThread[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
   useEffect(() => {
-    // 現在のアプリケーションの状態に基づいてbodyのIDを決定する
-    let pageId = '';
-    if (auth.isLoading) {
-      pageId = 'page-loading';
-    } else if (auth.error) {
-      pageId = 'page-error';
-    } else if (auth.isAuthenticated) {
-      pageId = 'page-authenticated-chat';
-    } else {
-      pageId = 'page-signin';
-    }
-
-    // bodyタグにIDを設定する
-    document.body.id = pageId;
-
-    // クリーンアップ関数: コンポーネントがアンマウントされる際にIDを削除する
-    return () => {
-      document.body.id = '';
-    };
-  }, [auth.isLoading, auth.error, auth.isAuthenticated]); 
-  // これらの状態が変わるたびにエフェクトを再実行
-
-
-  // --- ▼▼▼ 認証後にDBから履歴を読み込むuseEffect ▼▼▼ ---
-  useEffect(() => {
     const fetchHistory = async () => {
       if (auth.isAuthenticated && auth.user?.id_token) {
-        setIsLoading(true);
         try {
           const apiEndpoint = import.meta.env.VITE_APP_API_ENDPOINT;
           const res = await fetch(apiEndpoint, {
-            method: 'GET', // GETリクエスト
-            headers: {
-              'Authorization': `Bearer ${auth.user.id_token}`
-            }
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${auth.user.id_token}` }
           });
           if (!res.ok) throw new Error('Failed to fetch history');
           
@@ -65,13 +36,11 @@ function App() {
           setChats(historyData);
         } catch (error) {
           console.error("履歴の取得に失敗しました:", error);
-        } finally {
-          setIsLoading(false);
         }
       }
     };
     fetchHistory();
-  }, [auth.isAuthenticated, auth.user?.id_token]); // 認証状態が変わったら実行
+  }, [auth.isAuthenticated, auth.user?.id_token]);
 
 
   const handleSignOut = async () => {
@@ -83,56 +52,52 @@ function App() {
   };
 
   const handleSendPrompt = async () => {
-    if (!prompt.trim()) return;
-    setIsLoading(true);
+    if (!prompt.trim() || !auth.user?.id_token) return;
     
+    setIsLoading(true);
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content: prompt };
-    const currentPrompt = prompt; // 後で使うために保持
-    setPrompt(''); // 入力欄をクリア
+    const currentPrompt = prompt;
+    setPrompt('');
 
-    // --- 楽観的UI更新 ---
     const isNewChat = activeChatId === null;
     let tempChatId: string | null = null;
+    let updatedActiveChatId = activeChatId;
     
     if (isNewChat) {
       tempChatId = "temp-" + Date.now().toString();
-      const newChat: ChatThread = { id: tempChatId, title: currentPrompt.substring(0, 20), messages: [userMessage] };
+      const newChat: ChatThread = { id: tempChatId, title: currentPrompt.substring(0, 30) + '...', messages: [userMessage] };
       setChats(prev => [newChat, ...prev]);
       setActiveChatId(tempChatId);
+      updatedActiveChatId = tempChatId;
     } else {
       setChats(prev => prev.map(chat => 
         chat.id === activeChatId ? { ...chat, messages: [...chat.messages, userMessage] } : chat
       ));
     }
-    // ---
-
+    
     try {
       const apiEndpoint = import.meta.env.VITE_APP_API_ENDPOINT;
       const res = await fetch(apiEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.user?.id_token}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.user.id_token}` },
         body: JSON.stringify({ user_prompt: currentPrompt, chat_id: activeChatId }),
       });
       if (!res.ok) { throw new Error(`HTTP error! status: ${res.status}`); }
       
       const data: ApiResponse = await res.json();
 
-      // ▼▼▼ API応答のハンドリングを修正 ▼▼▼
-      if (data.newChat) { // 新規チャットの場合
+      if (data.newChat) {
         const newChatFromDB: ChatThread = data.newChat;
-        // 一時的なチャットを、DBから返ってきた本物のチャットに置き換える
         setChats(prev => prev.map(chat => chat.id === tempChatId ? newChatFromDB : chat));
-        // activeChatIdも本物のIDに更新
         setActiveChatId(newChatFromDB.id);
-      } else if (data.answer) { // 既存チャットの場合
+      } else if (data.answer) {
         const assistantMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: data.answer };
         setChats(prev => prev.map(chat => 
-          chat.id === activeChatId ? { ...chat, messages: [...chat.messages, assistantMessage] } : chat
+          chat.id === updatedActiveChatId ? { ...chat, messages: [...chat.messages, assistantMessage] } : chat
         ));
       }
 
     } catch (err: any) {
-      // エラーが発生した場合、一時的なチャットを削除するなどの後処理も可能
       console.error(err);
       if (tempChatId) {
         setChats(prev => prev.filter(chat => chat.id !== tempChatId));
@@ -145,15 +110,15 @@ function App() {
 
   const startNewChat = () => {
     setActiveChatId(null);
+    setPrompt('');
   };
   
   const handleChatSelect = (chatId: string) => {
     setActiveChatId(chatId);
   };
 
-  // 表示するメッセージリストを決定
   const activeMessages = chats.find(chat => chat.id === activeChatId)?.messages || [];
-
+  
   if (auth.isLoading) { return <div>Loading...</div>; }
   if (auth.error) { return <div>{auth.error.message}</div>; }
   
@@ -161,19 +126,20 @@ function App() {
     return (
       <div className="app-layout">
         <Sidebar 
-          userEmail={auth.user?.profile.email}
           chats={chats}
           activeChatId={activeChatId}
           onNewChat={startNewChat}
           onChatSelect={handleChatSelect}
+          userEmail={auth.user?.profile.email}
           onSignOut={handleSignOut}
         />
         <MainContent 
           messages={activeMessages}
           promptInput={prompt}
-          isLoading={isLoading}
+          isLoading={isLoading && activeChatId !== null}
           onPromptChange={setPrompt}
           onSendPrompt={handleSendPrompt}
+          // isChatActive={activeChatId !== null} // 不要なため削除
         />
       </div>
     );
