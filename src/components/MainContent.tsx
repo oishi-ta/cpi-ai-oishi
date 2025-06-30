@@ -90,7 +90,11 @@ const MainContent: React.FC<MainContentProps> = ({
           </div>
         </div>
         <div className="message-content">
-          <p>{msg.content}</p>
+          {msg.role === 'assistant' && msg.content === '' ? (
+            <div className="spinner-dots" />
+          ) : (
+            <p>{msg.content}</p>
+          )}
         </div>
         <div className="message-actions">
           {copiedId === msg.id ? (
@@ -138,7 +142,6 @@ const MainContent: React.FC<MainContentProps> = ({
       <div className="chat-area-wrapper">
         <div className="chat-area" ref={chatAreaRef} onScroll={handleScroll}>
           {messages.map(renderMessage)}
-          {isLoading && renderLoading()}
         </div>
         
         {showScrollToBottom && (
