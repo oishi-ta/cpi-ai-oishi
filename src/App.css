@@ -1,50 +1,29 @@
 /* src/App.css */
 
-/* --- CSS Variables for Light Theme --- */
+/* --- CSS Variables --- */
 :root {
   --background-main: #FFFFFF;
-  --background-secondary: #F9FAFB; /* ユーザーメッセージの背景色 */
+  --background-secondary: #F9FAFB;
   --foreground: #111827;
   --muted-foreground: #6B7280;
   --border: #E5E7EB;
   --input-border: #D1D5DB;
-  --primary: #108a3f;
+  --primary: #007bff; /* 青系のプライマリカラー */
   --primary-foreground: #FFFFFF;
-  --secondary: #F3F4F6; /* ホバーなどの背景色 */
+  --secondary: #F3F4F6;
   --secondary-foreground: #111827;
 }
 
-/* --- General Reset & Base Styles --- */
-body, #root {
-  background-color: var(--background-main);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  margin: 0;
-}
-
+/* --- General Reset & Base Styles (変更なし) --- */
+body, #root { background-color: var(--background-main); color: var(--foreground); font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 0; }
 button { cursor: pointer; border: none; background: none; color: inherit; font-family: inherit; }
 ul { list-style: none; padding: 0; margin: 0; }
 
-/* --- Main App Layout --- */
-.app-layout {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  background-color: var(--background-main);
-}
+/* --- Main App Layout (変更なし) --- */
+.app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; background-color: var(--background-main); }
 
-/* --- Sidebar (Light Theme) --- */
-.sidebar {
-  width: 260px;
-  flex: 0 0 260px;
-  background-color: var(--background-secondary);
-  color: var(--foreground);
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  border-right: 1px solid var(--border);
-}
+/* --- Sidebar (変更なし) --- */
+.sidebar { width: 260px; flex: 0 0 260px; background-color: var(--background-secondary); color: var(--foreground); display: flex; flex-direction: column; padding: 8px; border-right: 1px solid var(--border); }
 .sidebar-header { padding: 8px; height: 48px; font-size: 1rem; font-weight: 500; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
 .new-chat-button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background-color: var(--background-main); color: var(--foreground); font-size: 0.875rem; margin-top: 16px; transition: background-color 0.2s; }
 .new-chat-button:hover { background-color: var(--secondary); }
@@ -59,72 +38,26 @@ ul { list-style: none; padding: 0; margin: 0; }
 .signout-button { color: var(--muted-foreground); font-size: 0.875rem; padding: 4px 8px; border-radius: 4px; transition: background-color 0.2s; }
 .signout-button:hover { background-color: var(--secondary); color: var(--foreground); }
 
-/* --- Main Content --- */
-.main-content {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background-color: var(--background-main);
-}
-.main-header { display: none; }
+/* --- Main Content (変更なし) --- */
+.main-content { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; background-color: var(--background-main); }
 .chat-area-wrapper { flex-grow: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
-.chat-area {
-  flex-grow: 1;
-  overflow-y: auto;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.message-wrapper {
-  padding: 1.5rem 24px;
-}
-.message-wrapper.user {
-  background-color: var(--background-secondary);
-}
-
-.message-content-container {
-  max-width: 900px;
-  margin: 0 auto;
-}
-.message-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.sender-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--foreground);
-}
-.sender-info .icon {
-  font-size: 1.25rem;
-  color: var(--muted-foreground);
-  background-color: var(--border);
-  padding: 6px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.message-content p {
-  margin: 0;
-  line-height: 1.6;
-  color: var(--foreground);
-  white-space: pre-wrap;
-}
+.chat-area { flex-grow: 1; overflow-y: auto; width: 100%; box-sizing: border-box; }
+.message-wrapper { padding: 1.5rem 24px; }
+.message-wrapper.user { background-color: var(--background-secondary); }
+.message-content-container { max-width: 900px; margin: 0 auto; }
+.message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.sender-info { display: flex; align-items: center; gap: 0.75rem; font-weight: 600; font-size: 1rem; color: var(--foreground); }
+.sender-info .icon { font-size: 1.25rem; color: var(--muted-foreground); background-color: var(--border); padding: 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+.message-content p { margin: 0; line-height: 1.6; color: var(--foreground); white-space: pre-wrap; }
 .message-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 0.5rem;
+  gap: 12px; /* アイコンとタグの間のスペース */
   margin-top: 0.75rem;
   min-height: 25px;
 }
+
 .action-icon {
   font-size: 1rem;
   color: var(--muted-foreground);
@@ -142,68 +75,117 @@ ul { list-style: none; padding: 0; margin: 0; }
   padding: 4px;
   animation: fadeInOut 2s ease-in-out;
 }
-@keyframes fadeInOut {
-  0%, 100% { opacity: 0; }
-  10%, 90% { opacity: 1; }
+@keyframes fadeInOut { 0%, 100% { opacity: 0; } 10%, 90% { opacity: 1; } }
+
+
+.mode-tag {
+  font-size: 0.75rem; /* 12px */
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  /* デフォルトのスタイル */
+  background-color: var(--secondary);
+  color: var(--muted-foreground);
+}
+.mode-tag.mode-knowledge_base {
+  background-color: var(--tag-kb-bg);
+  color: var(--tag-kb-text);
+}
+.mode-tag.mode-general {
+  background-color: var(--tag-general-bg);
+  color: var(--tag-general-text);
 }
 
-.spinner-dots { display: inline-block; }
-.spinner-dots::after { content: ' .'; animation: dots 1s steps(5, end) infinite; color: var(--muted-foreground); }
-@keyframes dots {
-  0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-  40% { color: var(--muted-foreground); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-  60% { text-shadow: .25em 0 0 var(--muted-foreground), .5em 0 0 rgba(0,0,0,0); }
-  80%, 100% { text-shadow: .25em 0 0 var(--muted-foreground), .5em 0 0 var(--muted-foreground); }
-}
 
 .prompt-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* 中央揃え */
+  gap: 12px; /* 要素間のスペース */
   padding: 16px 24px;
   border-top: 1px solid var(--border);
   background-color: var(--background-main);
 }
-.prompt-input-container {
-  max-width: 900px;
-  margin: 0 auto;
-  display: flex;
-  align-items: flex-start; /* ボタンとテキストエリアの上端を揃える */
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  transition: border-color 0.2s;
-}
-.prompt-input-container:focus-within { border-color: var(--primary); }
 
+.mode-selector {
+  display: flex;
+  gap: 24px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+.radio-label input[type="radio"] {
+  accent-color: var(--primary); /* ラジオボタンの選択色 */
+}
+
+.prompt-input-container {
+  width: 100%;
+  max-width: 900px; /* 全体の幅 */
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 25px; /* 角を丸くする */
+  padding: 4px 8px 4px 16px; /* 内側の余白 */
+  transition: border-color 0.2s;
+  background-color: #f9f9f9;
+}
+.prompt-input-container:focus-within {
+  border-color: var(--primary);
+}
 
 .prompt-textarea {
   flex-grow: 1;
   background: transparent;
   border: none;
   outline: none;
-  
   color: var(--foreground);
   font-size: 1rem;
   font-family: inherit;
-  
-  resize: none; /* ブラウザのデフォルトのリサイズハンドルを無効化 */
+  resize: none;
   line-height: 1.6;
-  padding: 4px 0; /* 見た目の微調整 */
 }
 .prompt-textarea::placeholder {
-  color: var(--muted-foreground);
+  color: #a0a0a0;
 }
 
-
-.prompt-input-container button {
-  color: var(--muted-foreground);
+.send-icon-button {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
   font-size: 1.25rem;
-  padding: 4px;
-  transition: color 0.2s;
-  margin-top: 4px; /* 見た目の微調整 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
 }
-.prompt-input-container button:not(:disabled):hover { color: var(--foreground); }
-.prompt-input-container button:disabled { cursor: not-allowed; opacity: 0.5; }
+.send-icon-button:not(:disabled):hover {
+  background-color: #0056b3; /* ホバー時の色 */
+}
+.send-icon-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
 
-/* --- SignInScreen (Original Simple Style) --- */
+.disclaimer {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+/* Scroll to bottom button (変更なし) */
+.scroll-to-bottom-button { position: absolute; bottom: 200px; /* 位置を調整 */ left: 50%; transform: translateX(-50%); background-color: rgba(255, 255, 255, 0.9); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.scroll-to-bottom-button:hover { background-color: var(--background-main); }
+
+/* --- SignInScreen (変更なし) --- */
 .signin-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; padding: 20px; box-sizing: border-box; }
 .signin-container h1 { font-size: 2.5rem; font-weight: 600; color: var(--foreground); margin-bottom: 1rem; }
 .signin-container p { font-size: 1.1rem; color: var(--muted-foreground); margin-bottom: 2rem; }

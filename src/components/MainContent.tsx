@@ -8,6 +8,7 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  mode?: 'knowledge_base' | 'general';
 }
 export interface ChatThread {
   id:string;
@@ -20,7 +21,9 @@ interface MainContentProps {
   promptInput: string;
   isLoading: boolean;
   onPromptChange: (newPrompt: string) => void;
-  onSendPrompt: () => void;
+  onSendPrompt: () => void; // 引数なしに変更
+  mode: 'knowledge_base' | 'general'; // modeを受け取る
+  onModeChange: (newMode: 'knowledge_base' | 'general') => void; // mode変更関数を受け取る
 }
 
 const MainContent: React.FC<MainContentProps> = ({
@@ -29,24 +32,20 @@ const MainContent: React.FC<MainContentProps> = ({
   isLoading,
   onPromptChange,
   onSendPrompt,
+  mode,
+  onModeChange,
 }) => {
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  // ★★★ここが修正のポイント★★★
-  // 全ての複雑な条件分岐をなくし、最もシンプルで確実なスクロール処理に戻します。
   useLayoutEffect(() => {
     const chatArea = chatAreaRef.current;
     if (chatArea) {
-      // メッセージが更新されるか、ローディング状態が変わるたびに、常に一番下へスクロールします。
       chatArea.scrollTop = chatArea.scrollHeight;
     }
-  }, [messages, isLoading]); // 依存配列に messages と isLoading を指定
+  }, [messages, isLoading]);
 
-
-  // 「一番下に移動」ボタンの表示/非表示ロジックは、このままでも問題ありません。
-  // （ただし、常に自動スクロールするため、ボタンが表示される機会は減ります）
   const handleScroll = () => {
     const chatArea = chatAreaRef.current;
     if (!chatArea) return;
@@ -58,10 +57,7 @@ const MainContent: React.FC<MainContentProps> = ({
   const scrollToBottom = () => {
     const chatArea = chatAreaRef.current;
     if (chatArea) {
-      chatArea.scrollTo({
-        top: chatArea.scrollHeight,
-        behavior: 'smooth'
-      });
+      chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
     }
   };
   
@@ -69,9 +65,7 @@ const MainContent: React.FC<MainContentProps> = ({
     try {
       await navigator.clipboard.writeText(textToCopy);
       setCopiedId(messageId);
-      setTimeout(() => {
-        setCopiedId(null);
-      }, 2000);
+      setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error('クリップボードへのコピーに失敗しました:', err);
       alert('コピーに失敗しました。');
@@ -83,9 +77,7 @@ const MainContent: React.FC<MainContentProps> = ({
       <>
         <div className="message-header">
           <div className="sender-info">
-            <div className="icon">
-              {msg.role === 'user' ? <LuUser /> : <LuBot />}
-            </div>
+            <div className="icon">{msg.role === 'user' ? <LuUser /> : <LuBot />}</div>
             <span>{msg.role === 'user' ? 'You' : 'Assistant'}</span>
           </div>
         </div>
@@ -97,14 +89,15 @@ const MainContent: React.FC<MainContentProps> = ({
           )}
         </div>
         <div className="message-actions">
+          {msg.role === 'assistant' && msg.mode && (
+            <span className={`mode-tag mode-${msg.mode}`}>
+              {msg.mode === 'knowledge_base' ? '社内データで検索' : '通常AIで生成'}
+            </span>
+          )}
           {copiedId === msg.id ? (
             <span className="copied-feedback">コピーしました！</span>
           ) : (
-            <button 
-              className="action-icon" 
-              title="Copy"
-              onClick={() => handleCopy(msg.content, msg.id)}
-            >
+            <button className="action-icon" title="Copy" onClick={() => handleCopy(msg.content, msg.id)}>
               <LuCopy />
             </button>
           )}
@@ -114,29 +107,11 @@ const MainContent: React.FC<MainContentProps> = ({
 
     return (
       <div key={msg.id} className={`message-wrapper ${msg.role}`}>
-        <div className="message-content-container">
-          {messageContent}
-        </div>
+        <div className="message-content-container">{messageContent}</div>
       </div>
     );
   };
-
-  const renderLoading = () => (
-     <div className="message-wrapper assistant">
-      <div className="message-content-container">
-        <div className="message-header">
-          <div className="sender-info">
-            <div className="icon"><LuBot /></div>
-            <span>Assistant</span>
-          </div>
-        </div>
-        <div className="message-content">
-          <div className="spinner-dots" />
-        </div>
-      </div>
-    </div>
-  );
-
+  
   return (
     <main className="main-content">
       <div className="chat-area-wrapper">
@@ -151,6 +126,32 @@ const MainContent: React.FC<MainContentProps> = ({
         )}
         
         <div className="prompt-input-wrapper">
+          
+          <div className="mode-selector">
+            <label className="radio-label">
+              <input 
+                type="radio" 
+                name="chatMode" 
+                value="knowledge_base"
+                checked={mode === 'knowledge_base'}
+                onChange={() => onModeChange('knowledge_base')}
+                disabled={isLoading}
+              />
+              <span>社内データのみ</span>
+            </label>
+            <label className="radio-label">
+              <input 
+                type="radio" 
+                name="chatMode" 
+                value="general"
+                checked={mode === 'general'}
+                onChange={() => onModeChange('general')}
+                disabled={isLoading}
+              />
+              <span>通常生成AI利用</span>
+            </label>
+          </div>
+
           <div className="prompt-input-container">
             <TextareaAutosize
               className="prompt-textarea"
@@ -164,14 +165,16 @@ const MainContent: React.FC<MainContentProps> = ({
                   }
                 }
               }}
-              placeholder="質問を入力してください..."
+              placeholder="ご自由に入力してください..."
               disabled={isLoading}
               rows={1}
               maxRows={10}
             />
             <button 
+              className="send-icon-button"
               onClick={onSendPrompt} 
               disabled={isLoading || !promptInput.trim()}
+              title="送信"
             >
               <LuSendHorizontal />
             </button>

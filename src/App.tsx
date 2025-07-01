@@ -1,4 +1,5 @@
 // src/App.tsx
+
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from "react-oidc-context";
 import './App.css';
@@ -7,7 +8,6 @@ import Sidebar from './components/Sidebar';
 import MainContent, { type ChatThread, type Message } from './components/MainContent';
 import SignInScreen from './components/SignInScreen';
 
-// WebSocketサーバーからのメッセージの型定義
 interface WebSocketMessage {
   text?: string;
   status?: 'done';
@@ -18,7 +18,6 @@ interface WebSocketMessage {
   data?: Message[]; 
 }
 
-// HTTP APIから返されるチャットリストの型
 type ChatListItem = Omit<ChatThread, 'messages'>;
 
 
@@ -31,16 +30,18 @@ function App() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   
+  const [mode, setMode] = useState<'knowledge_base' | 'general'>('general');
+
   const socketRef = useRef<WebSocket | null>(null);
   const tempChatIdRef = useRef<string | null>(null);
 
+  // useEffect (fetchChatList) は変更なし
   useEffect(() => {
     if (!auth.isAuthenticated || !auth.user) {
       setChats([]);
       return;
     }
     const user = auth.user;
-
     const fetchChatList = async () => {
       try {
         const httpEndpoint = import.meta.env.VITE_APP_HTTP_API_ENDPOINT;
@@ -65,6 +66,7 @@ function App() {
     fetchChatList();
   }, [auth.isAuthenticated, auth.user]);
 
+  // useEffect (WebSocket接続) は変更なし
   useEffect(() => {
     if (auth.isAuthenticated && auth.user && !socketRef.current) {
       const user = auth.user;
@@ -74,28 +76,15 @@ function App() {
       const socket = new WebSocket(socketUrl);
       socketRef.current = socket;
 
-      socket.onopen = () => {
-        console.log("WebSocket接続が確立しました。");
-        setIsSocketConnected(true);
-      };
-
-      socket.onclose = (event) => {
-        console.log("WebSocket接続が切れました。コード:", event.code, "理由:", event.reason);
-        setIsSocketConnected(false);
-        socketRef.current = null;
-      };
-
+      socket.onopen = () => { console.log("WebSocket接続が確立しました。"); setIsSocketConnected(true); };
+      socket.onclose = (event) => { console.log("WebSocket接続が切れました。コード:", event.code, "理由:", event.reason); setIsSocketConnected(false); socketRef.current = null; };
       socket.onerror = (error) => console.error("WebSocketエラー:", error);
 
-      return () => {
-        if (socketRef.current) {
-          socketRef.current.close();
-          socketRef.current = null;
-        }
-      };
+      return () => { if (socketRef.current) { socketRef.current.close(); socketRef.current = null; } };
     }
   }, [auth.isAuthenticated, auth.user]);
 
+  // useEffect (メッセージハンドリング) は変更なし
   useEffect(() => {
     const socket = socketRef.current;
     if (socket && isSocketConnected) {
@@ -103,19 +92,14 @@ function App() {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
           
-          // ★★★ ここが最終修正点 ★★★
-          // 条件式に `message.data` を含めることで、型の安全性を保証する
           if (message.action === 'historyResponse' && message.chatId) {
-const historyMessages = message.data || []; // undefinedの場合は空配列
-setChats(prevChats => prevChats.map(chat =>
-chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
-));
-}
+            const historyMessages = message.data || [];
+            setChats(prevChats => prevChats.map(chat => chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat));
+          }
           else if (message.text) {
             setChats(prevChats => prevChats.map(chat => {
               const targetId = activeChatId || tempChatIdRef.current;
               if (chat.id !== targetId) return chat;
-
               const lastMessage = chat.messages[chat.messages.length - 1];
               if (lastMessage?.role === 'assistant') {
                 const updatedLastMessage = { ...lastMessage, content: lastMessage.content + message.text };
@@ -127,10 +111,7 @@ chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
           else if (message.status === 'done') {
             const newChatData = message.newChat;
             if (newChatData) {
-              setChats(prev => [
-                newChatData,
-                ...prev.filter(c => c.id !== tempChatIdRef.current)
-              ]);
+              setChats(prev => [ newChatData, ...prev.filter(c => c.id !== tempChatIdRef.current) ]);
               setActiveChatId(newChatData.id);
               tempChatIdRef.current = null;
             }
@@ -141,19 +122,14 @@ chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
             alert(`サーバーでエラーが発生しました: ${message.error}`);
             setIsLoading(false);
           }
-        } catch(e) {
-            console.error("受信メッセージの解析に失敗しました:", event.data, e);
-        }
+        } catch(e) { console.error("受信メッセージの解析に失敗しました:", event.data, e); }
       };
-
       socket.addEventListener('message', messageHandler);
-
-      return () => {
-        socket.removeEventListener('message', messageHandler);
-      };
+      return () => { socket.removeEventListener('message', messageHandler); };
     }
   }, [isSocketConnected, activeChatId]);
 
+  // useEffect (履歴取得) は変更なし
   useEffect(() => {
       const socket = socketRef.current;
       if (socket && isSocketConnected && activeChatId) {
@@ -182,17 +158,24 @@ chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
     const currentPrompt = prompt;
     setPrompt('');
 
+    const assistantPlaceholder: Message = { 
+      id: (Date.now() + 1).toString(), 
+      role: 'assistant', 
+      content: '',
+      mode: mode
+    };
+
     const isNewChat = activeChatId === null;
 
     if (isNewChat) {
       const tempId = "temp-" + Date.now().toString();
       tempChatIdRef.current = tempId;
-      const assistantPlaceholder: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: '' };
+      // 共通のplaceholderを使用
       const newChat: ChatThread = { id: tempId, title: currentPrompt.substring(0, 30) + '...', messages: [userMessage, assistantPlaceholder] };
       setChats(prev => [newChat, ...prev]);
       setActiveChatId(tempId);
     } else {
-      const assistantPlaceholder: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: '' };
+      // 共通のplaceholderを使用
       setChats(prev => prev.map(chat => 
         chat.id === activeChatId ? { ...chat, messages: [...chat.messages, userMessage, assistantPlaceholder] } : chat
       ));
@@ -202,6 +185,7 @@ chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
       action: 'sendMessage',
       user_prompt: currentPrompt,
       chat_id: isNewChat ? null : activeChatId,
+      mode: mode,
     }));
   };
 
@@ -238,6 +222,8 @@ chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
           isLoading={isLoading}
           onPromptChange={setPrompt}
           onSendPrompt={handleSendPrompt}
+          mode={mode}
+          onModeChange={setMode}
         />
       </div>
     );
