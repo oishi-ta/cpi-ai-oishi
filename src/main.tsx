@@ -6,14 +6,18 @@ import type { User } from "oidc-client-ts";
 
 const cognitoAuthConfig = {
   // Cognitoユーザープールのドメイン
-  authority: "https://cognito-idp.ap-northeast-1.amazonaws.com/ap-northeast-1_baatQB5CY",
+  authority: "https://cognito-idp.ap-northeast-1.amazonaws.com/ap-northeast-1_LuvUmWDZ4",
   // アプリケーションクライアントID
-  client_id: "370ul24957c9akfm11j1eelooj",
+  client_id: "1io057uu2e3jobtl0rsggpc3js",
   // アプリケーションのコールバックURL
   redirect_uri: import.meta.env.VITE_APP_REDIRECT_URI,
   response_type: "code",
   // 許可するスコープ
   scope: "email openid phone",
+  //日本語対応
+  extraQueryParams: {
+    lang: "ja"
+  }
 };
 
 const onSigninCallback = (_user: User | void): void => {
