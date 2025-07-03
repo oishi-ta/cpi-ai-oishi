@@ -1,12 +1,9 @@
 // src/App.tsx
-
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from "react-oidc-context";
 import './App.css';
-
 import Sidebar from './components/Sidebar';
 import MainContent, { type ChatThread, type Message } from './components/MainContent';
-import SignInScreen from './components/SignInScreen';
 
 interface WebSocketMessage {
   text?: string;
@@ -15,25 +12,54 @@ interface WebSocketMessage {
   chatId?: string;
   error?: string;
   action?: 'historyResponse';
-  data?: Message[]; 
+  data?: Message[];
 }
 
 type ChatListItem = Omit<ChatThread, 'messages'>;
 
-
 function App() {
   const auth = useAuth();
-  
   const [prompt, setPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [chats, setChats] = useState<ChatThread[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
-  
   const [mode, setMode] = useState<'knowledge_base' | 'general'>('general');
-
   const socketRef = useRef<WebSocket | null>(null);
   const tempChatIdRef = useRef<string | null>(null);
+
+      // 認証状態の変化を監視してWebSocketを再接続
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user) {
+      // WebSocketが接続されていない場合は接続
+      if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+        const user = auth.user;
+        const wsEndpoint = import.meta.env.VITE_APP_WEBSOCKET_ENDPOINT;
+        const socketUrl = `${wsEndpoint}?id_token=${user.id_token}`;
+
+        const socket = new WebSocket(socketUrl);
+        socketRef.current = socket;
+
+        socket.onopen = () => { 
+          console.log("WebSocket接続が確立しました。"); 
+          setIsSocketConnected(true); 
+        };
+        socket.onclose = (event) => { 
+          console.log("WebSocket接続が切れました。コード:", event.code, "理由:", event.reason); 
+          setIsSocketConnected(false); 
+          socketRef.current = null; 
+        };
+        socket.onerror = (error) => console.error("WebSocketエラー:", error);
+      }
+    } else if (!auth.isAuthenticated) {
+      // 認証されていない場合はWebSocketを切断
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+        setIsSocketConnected(false);
+      }
+    }
+  }, [auth.isAuthenticated, auth.user]);
 
   // useEffect (fetchChatList) は変更なし
   useEffect(() => {
@@ -41,6 +67,7 @@ function App() {
       setChats([]);
       return;
     }
+
     const user = auth.user;
     const fetchChatList = async () => {
       try {
@@ -49,40 +76,26 @@ function App() {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${user.id_token}` }
         });
+
         if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
         const data: ChatListItem[] = await response.json();
         const initialChats = data.map(chat => ({ ...chat, messages: [] }));
         setChats(initialChats);
-        
+
         if (initialChats.length > 0) {
-            setActiveChatId(initialChats[0].id);
+          setActiveChatId(initialChats[0].id);
         } else {
-            setActiveChatId(null);
+          setActiveChatId(null);
         }
       } catch (error) {
         console.error("チャット履歴一覧の取得に失敗しました:", error);
       }
     };
+
     fetchChatList();
   }, [auth.isAuthenticated, auth.user]);
 
-  // useEffect (WebSocket接続) は変更なし
-  useEffect(() => {
-    if (auth.isAuthenticated && auth.user && !socketRef.current) {
-      const user = auth.user;
-      const wsEndpoint = import.meta.env.VITE_APP_WEBSOCKET_ENDPOINT;
-      const socketUrl = `${wsEndpoint}?id_token=${user.id_token}`;
-      
-      const socket = new WebSocket(socketUrl);
-      socketRef.current = socket;
-
-      socket.onopen = () => { console.log("WebSocket接続が確立しました。"); setIsSocketConnected(true); };
-      socket.onclose = (event) => { console.log("WebSocket接続が切れました。コード:", event.code, "理由:", event.reason); setIsSocketConnected(false); socketRef.current = null; };
-      socket.onerror = (error) => console.error("WebSocketエラー:", error);
-
-      return () => { if (socketRef.current) { socketRef.current.close(); socketRef.current = null; } };
-    }
-  }, [auth.isAuthenticated, auth.user]);
+  // useEffect (WebSocket接続) - 上記の新しいuseEffectに統合されたため削除
 
   // useEffect (メッセージハンドリング) は変更なし
   useEffect(() => {
@@ -91,10 +104,14 @@ function App() {
       const messageHandler = (event: MessageEvent) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          
+
           if (message.action === 'historyResponse' && message.chatId) {
             const historyMessages = message.data || [];
-            setChats(prevChats => prevChats.map(chat => chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat));
+            setChats(prevChats => 
+              prevChats.map(chat => 
+                chat.id === message.chatId ? { ...chat, messages: historyMessages } : chat
+              )
+            );
           }
           else if (message.text) {
             setChats(prevChats => prevChats.map(chat => {
@@ -122,8 +139,11 @@ function App() {
             alert(`サーバーでエラーが発生しました: ${message.error}`);
             setIsLoading(false);
           }
-        } catch(e) { console.error("受信メッセージの解析に失敗しました:", event.data, e); }
+        } catch(e) { 
+          console.error("受信メッセージの解析に失敗しました:", event.data, e); 
+        }
       };
+
       socket.addEventListener('message', messageHandler);
       return () => { socket.removeEventListener('message', messageHandler); };
     }
@@ -131,28 +151,51 @@ function App() {
 
   // useEffect (履歴取得) は変更なし
   useEffect(() => {
-      const socket = socketRef.current;
-      if (socket && isSocketConnected && activeChatId) {
-          const activeChat = chats.find(c => c.id === activeChatId);
-          if (activeChat && activeChat.messages.length === 0) {
-              console.log(`チャット ${activeChatId} の履歴を取得します。`);
-              socket.send(JSON.stringify({ action: 'getHistory', chat_id: activeChatId }));
-          }
+    const socket = socketRef.current;
+    if (socket && isSocketConnected && activeChatId) {
+      const activeChat = chats.find(c => c.id === activeChatId);
+      if (activeChat && activeChat.messages.length === 0) {
+        console.log(`チャット ${activeChatId} の履歴を取得します。`);
+        socket.send(JSON.stringify({ action: 'getHistory', chat_id: activeChatId }));
       }
+    }
   }, [activeChatId, isSocketConnected, chats]);
 
-
   const handleSignOut = async () => {
-    await auth.removeUser();
-    setActiveChatId(null);
-  };
-  
-  const handleSendPrompt = async () => {
-    if (!prompt.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-        alert("接続が確立されていません。少し待ってから再試行してください。");
-        return;
+    // WebSocket接続をクリーンアップ
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
     }
     
+    // 状態をリセット
+    setChats([]);
+    setActiveChatId(null);
+    setIsSocketConnected(false);
+    
+    try {
+      // ローカルセッションをクリア
+      await auth.removeUser();
+      
+      // Cognitoからログアウト（専用のログアウトページにリダイレクト）
+      const clientId = "1io057uu2e3jobtl0rsggpc3js";
+      const logoutUri = "http://localhost:5173/logout.html";
+      const cognitoDomain = "https://ap-northeast-1luvumwdz4.auth.ap-northeast-1.amazoncognito.com";
+      
+      window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+    } catch (error) {
+      console.error("サインアウトエラー:", error);
+      // エラーが発生した場合は直接ログアウトページにリダイレクト
+      window.location.href = "http://localhost:5173/logout.html";
+    }
+  };
+
+  const handleSendPrompt = async () => {
+    if (!prompt.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      alert("接続が確立されていません。少し待ってから再試行してください。");
+      return;
+    }
+
     setIsLoading(true);
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content: prompt };
     const currentPrompt = prompt;
@@ -171,7 +214,11 @@ function App() {
       const tempId = "temp-" + Date.now().toString();
       tempChatIdRef.current = tempId;
       // 共通のplaceholderを使用
-      const newChat: ChatThread = { id: tempId, title: currentPrompt.substring(0, 30) + '...', messages: [userMessage, assistantPlaceholder] };
+      const newChat: ChatThread = { 
+        id: tempId, 
+        title: currentPrompt.substring(0, 30) + '...', 
+        messages: [userMessage, assistantPlaceholder] 
+      };
       setChats(prev => [newChat, ...prev]);
       setActiveChatId(tempId);
     } else {
@@ -180,7 +227,7 @@ function App() {
         chat.id === activeChatId ? { ...chat, messages: [...chat.messages, userMessage, assistantPlaceholder] } : chat
       ));
     }
-    
+
     socketRef.current.send(JSON.stringify({
       action: 'sendMessage',
       user_prompt: currentPrompt,
@@ -193,7 +240,7 @@ function App() {
     setActiveChatId(null);
     setPrompt('');
   };
-  
+
   const handleChatSelect = (chatId: string) => {
     if (chatId !== activeChatId) {
       setActiveChatId(chatId);
@@ -202,9 +249,14 @@ function App() {
 
   const activeMessages = chats.find(chat => chat.id === activeChatId)?.messages || [];
 
-  if (auth.isLoading) { return <div>読み込み中...</div>; }
-  if (auth.error) { return <div>エラー: {auth.error.message}</div>; }
-  
+  if (auth.isLoading) { 
+    return <div>読み込み中...</div>; 
+  }
+
+  if (auth.error) { 
+    return <div>エラー: {auth.error.message}</div>; 
+  }
+
   if (auth.isAuthenticated && auth.user) {
     return (
       <div className="app-layout">
@@ -229,7 +281,9 @@ function App() {
     );
   }
 
-  return <SignInScreen onSignIn={() => auth.signinRedirect()} />;
+  // 認証されていない場合は自動的にCognitoサインインページにリダイレクト
+  auth.signinRedirect();
+  return <div>Cognitoサインインページにリダイレクト中...</div>;
 }
 
 export default App;
