@@ -1,6 +1,6 @@
 // src/components/MainContent.tsx
 import React, { useRef, useState, useLayoutEffect } from 'react';
-import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuArrowDown } from 'react-icons/lu';
+import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuArrowDown, LuMenu, LuX } from 'react-icons/lu';
 import TextareaAutosize from 'react-textarea-autosize';
 
 // 型定義
@@ -24,6 +24,8 @@ interface MainContentProps {
   onSendPrompt: () => void; // 引数なしに変更
   mode: 'knowledge_base' | 'general'; // modeを受け取る
   onModeChange: (newMode: 'knowledge_base' | 'general') => void; // mode変更関数を受け取る
+  onToggleSidebar?: () => void; // モバイル用サイドバー切り替え
+  isMobileSidebarOpen?: boolean; // サイドバーの開閉状態
 }
 
 const MainContent: React.FC<MainContentProps> = ({
@@ -34,6 +36,8 @@ const MainContent: React.FC<MainContentProps> = ({
   onSendPrompt,
   mode,
   onModeChange,
+  onToggleSidebar,
+  isMobileSidebarOpen = false,
 }) => {
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -41,8 +45,13 @@ const MainContent: React.FC<MainContentProps> = ({
 
   useLayoutEffect(() => {
     const chatArea = chatAreaRef.current;
-    if (chatArea) {
+    if (chatArea && messages.length > 0) {
+      // 一時的にスクロール動作を無効化して瞬間移動
+      const originalBehavior = chatArea.style.scrollBehavior;
+      chatArea.style.scrollBehavior = 'auto';
       chatArea.scrollTop = chatArea.scrollHeight;
+      // すぐにスクロール動作を元に戻す
+      chatArea.style.scrollBehavior = originalBehavior;
     }
   }, [messages, isLoading]);
 
@@ -57,6 +66,7 @@ const MainContent: React.FC<MainContentProps> = ({
   const scrollToBottom = () => {
     const chatArea = chatAreaRef.current;
     if (chatArea) {
+      // 手動でボタンを押した時のみスムーズスクロール
       chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
     }
   };
@@ -114,6 +124,19 @@ const MainContent: React.FC<MainContentProps> = ({
   
   return (
     <main className="main-content">
+      {/* モバイル用ヘッダー */}
+      <div className="mobile-header">
+        <button 
+          className={`mobile-menu-button ${isMobileSidebarOpen ? 'active' : ''}`}
+          onClick={onToggleSidebar}
+          title={isMobileSidebarOpen ? 'メニューを閉じる' : 'メニューを開く'}
+        >
+          {isMobileSidebarOpen ? <LuX /> : <LuMenu />}
+        </button>
+        <div className="mobile-title">CPI社内文書AI</div>
+        <div style={{ width: '40px' }}></div> {/* スペーサー */}
+      </div>
+
       <div className="chat-area-wrapper">
         <div className="chat-area" ref={chatAreaRef} onScroll={handleScroll}>
           {messages.map(renderMessage)}

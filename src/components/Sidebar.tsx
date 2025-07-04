@@ -11,6 +11,8 @@ interface SidebarProps {
   // --- フッターに戻すためのProps ---
   userEmail: string | undefined;
   onSignOut: () => void;
+  // --- モバイル対応用Props ---
+  className?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -20,9 +22,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onChatSelect,
   userEmail,
   onSignOut,
+  className = '',
 }) => {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${className}`}>
       <div className="sidebar-header">
         CPI社内文書AI
       </div>
