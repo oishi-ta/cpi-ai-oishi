@@ -1,6 +1,7 @@
 // src/components/MainContent.tsx
 import React, { useRef, useState, useLayoutEffect } from 'react';
-import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuArrowDown, LuMenu, LuX } from 'react-icons/lu';
+import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuMenu, LuX } from 'react-icons/lu';
+import { IoArrowDown } from 'react-icons/io5';
 import TextareaAutosize from 'react-textarea-autosize';
 
 // 型定義
@@ -9,9 +10,11 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   mode?: 'knowledge_base' | 'general';
+  model?: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4'; // モデル選択肢を拡張
 }
+
 export interface ChatThread {
-  id:string;
+  id: string;
   title: string;
   messages: Message[];
 }
@@ -21,11 +24,13 @@ interface MainContentProps {
   promptInput: string;
   isLoading: boolean;
   onPromptChange: (newPrompt: string) => void;
-  onSendPrompt: () => void; // 引数なしに変更
-  mode: 'knowledge_base' | 'general'; // modeを受け取る
-  onModeChange: (newMode: 'knowledge_base' | 'general') => void; // mode変更関数を受け取る
-  onToggleSidebar?: () => void; // モバイル用サイドバー切り替え
-  isMobileSidebarOpen?: boolean; // サイドバーの開閉状態
+  onSendPrompt: () => void;
+  mode: 'knowledge_base' | 'general';
+  onModeChange: (newMode: 'knowledge_base' | 'general') => void;
+  model: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4'; // モデル選択を拡張
+  onModelChange: (newModel: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4') => void; // モデル変更を拡張
+  onToggleSidebar?: () => void;
+  isMobileSidebarOpen?: boolean;
 }
 
 const MainContent: React.FC<MainContentProps> = ({
@@ -46,11 +51,9 @@ const MainContent: React.FC<MainContentProps> = ({
   useLayoutEffect(() => {
     const chatArea = chatAreaRef.current;
     if (chatArea && messages.length > 0) {
-      // 一時的にスクロール動作を無効化して瞬間移動
       const originalBehavior = chatArea.style.scrollBehavior;
       chatArea.style.scrollBehavior = 'auto';
       chatArea.scrollTop = chatArea.scrollHeight;
-      // すぐにスクロール動作を元に戻す
       chatArea.style.scrollBehavior = originalBehavior;
     }
   }, [messages, isLoading]);
@@ -66,7 +69,6 @@ const MainContent: React.FC<MainContentProps> = ({
   const scrollToBottom = () => {
     const chatArea = chatAreaRef.current;
     if (chatArea) {
-      // 手動でボタンを押した時のみスムーズスクロール
       chatArea.scrollTo({ top: chatArea.scrollHeight, behavior: 'smooth' });
     }
   };
@@ -79,6 +81,17 @@ const MainContent: React.FC<MainContentProps> = ({
     } catch (err) {
       console.error('クリップボードへのコピーに失敗しました:', err);
       alert('コピーに失敗しました。');
+    }
+  };
+
+  const getModelDisplayName = (modelId: string) => {
+    switch (modelId) {
+      case 'nova-lite': return 'Nova Lite';
+      case 'nova-pro': return 'Nova Pro';
+      case 'claude-3-7-sonnet': return 'Claude 3.7 Sonnet';
+      case 'claude-3-5-sonnet-v2': return 'Claude 3.5 Sonnet V2';
+      case 'claude-sonnet-4': return 'Claude Sonnet 4';
+      default: return modelId;
     }
   };
 
@@ -99,10 +112,19 @@ const MainContent: React.FC<MainContentProps> = ({
           )}
         </div>
         <div className="message-actions">
-          {msg.role === 'assistant' && msg.mode && (
-            <span className={`mode-tag mode-${msg.mode}`}>
-              {msg.mode === 'knowledge_base' ? '社内データで検索' : '通常AIで生成'}
-            </span>
+          {msg.role === 'assistant' && (
+            <div className="message-meta">
+              {msg.mode && (
+                <span className={`mode-tag mode-${msg.mode}`}>
+                  {msg.mode === 'knowledge_base' ? '社内データで検索' : '通常AIで生成'}
+                </span>
+              )}
+              {msg.model && (
+                <span className={`model-tag model-${msg.model}`}>
+                  {getModelDisplayName(msg.model)}
+                </span>
+              )}
+            </div>
           )}
           {copiedId === msg.id ? (
             <span className="copied-feedback">コピーしました！</span>
@@ -134,7 +156,7 @@ const MainContent: React.FC<MainContentProps> = ({
           {isMobileSidebarOpen ? <LuX /> : <LuMenu />}
         </button>
         <div className="mobile-title">CPI社内文書AI</div>
-        <div style={{ width: '40px' }}></div> {/* スペーサー */}
+        <div style={{ width: '40px' }}></div>
       </div>
 
       <div className="chat-area-wrapper">
@@ -144,12 +166,13 @@ const MainContent: React.FC<MainContentProps> = ({
         
         {showScrollToBottom && (
           <button className="scroll-to-bottom-button" onClick={scrollToBottom} title="一番下へ移動">
-            <LuArrowDown />
+            <IoArrowDown />
           </button>
         )}
         
         <div className="prompt-input-wrapper">
           
+          {/* モード選択セクション */}
           <div className="mode-selector">
             <label className="radio-label">
               <input 

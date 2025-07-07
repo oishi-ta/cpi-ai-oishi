@@ -24,6 +24,7 @@ function ChatPage() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [mode, setMode] = useState<'knowledge_base' | 'general'>('general');
+  const [model, setModel] = useState<'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4'>('nova-lite'); // モデル選択状態を拡張
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   // サインアウト確認モーダルの状態
@@ -234,11 +235,13 @@ function ChatPage() {
     const currentPrompt = prompt;
     setPrompt('');
 
+    // アシスタントメッセージにモデル情報を含める
     const assistantPlaceholder: Message = { 
       id: (Date.now() + 1).toString(), 
       role: 'assistant', 
       content: '',
-      mode: mode
+      mode: mode,
+      model: model // 選択されたモデル情報を追加
     };
 
     const isNewChat = activeChatId === null;
@@ -259,11 +262,13 @@ function ChatPage() {
       ));
     }
 
+    // WebSocketメッセージにモデル情報を含める
     socketRef.current.send(JSON.stringify({
       action: 'sendMessage',
       user_prompt: currentPrompt,
       chat_id: isNewChat ? null : activeChatId,
       mode: mode,
+      model: model, // モデル情報をサーバーに送信
     }));
   };
 
@@ -278,6 +283,11 @@ function ChatPage() {
       setActiveChatId(chatId);
     }
     closeMobileSidebar();
+  };
+
+  // モデル変更ハンドラー
+  const handleModelChange = (newModel: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4') => {
+    setModel(newModel);
   };
 
   const activeMessages = chats.find(chat => chat.id === activeChatId)?.messages || [];
@@ -298,6 +308,8 @@ function ChatPage() {
         userEmail={auth.user?.profile.email}
         onSignOut={handleSignOutRequest}
         className={isMobileSidebarOpen ? 'mobile-open' : ''}
+        model={model} // モデル選択状態を渡す
+        onModelChange={handleModelChange} // モデル変更ハンドラーを渡す
       />
       
       <MainContent 
@@ -308,6 +320,8 @@ function ChatPage() {
         onSendPrompt={handleSendPrompt}
         mode={mode}
         onModeChange={setMode}
+        model={model} // モデル選択状態を渡す
+        onModelChange={handleModelChange} // モデル変更ハンドラーを渡す
         onToggleSidebar={toggleMobileSidebar}
         isMobileSidebarOpen={isMobileSidebarOpen}
       />
