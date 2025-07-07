@@ -132,7 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       `response_type=code&` +
       `client_id=${clientId}&` +
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `scope=email+openid+phone`;
+      `scope=email+openid+phone&` +
+      `lang=ja`;
     
     window.location.href = loginUrl;
   };

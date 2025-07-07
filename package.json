@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "_comment_build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:develop": "tsc -b && vite build --mode develop",
+    "build:staging": "tsc -b && vite build --mode staging"
   },
   "dependencies": {
     "oidc-client-ts": "^3.2.1",
