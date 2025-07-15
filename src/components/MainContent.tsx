@@ -3,6 +3,11 @@ import React, { useRef, useState, useLayoutEffect } from 'react';
 import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuMenu, LuX } from 'react-icons/lu';
 import { IoArrowDown } from 'react-icons/io5';
 import TextareaAutosize from 'react-textarea-autosize';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 // 型定義
 export interface Message {
@@ -10,7 +15,7 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   mode?: 'knowledge_base' | 'general';
-  model?: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4'; // モデル選択肢を拡張
+  model?: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4';
 }
 
 export interface ChatThread {
@@ -27,8 +32,8 @@ interface MainContentProps {
   onSendPrompt: () => void;
   mode: 'knowledge_base' | 'general';
   onModeChange: (newMode: 'knowledge_base' | 'general') => void;
-  model: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4'; // モデル選択を拡張
-  onModelChange: (newModel: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4') => void; // モデル変更を拡張
+  model: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4';
+  onModelChange: (newModel: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4') => void;
   onToggleSidebar?: () => void;
   isMobileSidebarOpen?: boolean;
 }
@@ -95,6 +100,29 @@ const MainContent: React.FC<MainContentProps> = ({
     }
   };
 
+  // マークダウンコンポーネントの設定
+  const markdownComponents = {
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      const language = match ? match[1] : '';
+      
+      return !inline && match ? (
+        <SyntaxHighlighter
+          style={oneDark}
+          language={language}
+          PreTag="div"
+          {...props}
+        >
+          {String(children).replace(/\n$/, '')}
+        </SyntaxHighlighter>
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
+    }
+  };
+
   const renderMessage = (msg: Message) => {
     const messageContent = (
       <>
@@ -108,7 +136,22 @@ const MainContent: React.FC<MainContentProps> = ({
           {msg.role === 'assistant' && msg.content === '' ? (
             <div className="spinner-dots" />
           ) : (
-            <p>{msg.content}</p>
+            <div className="message-text">
+              {msg.role === 'user' ? (
+                // ユーザーメッセージは通常のテキストとして表示
+                <p className="user-message-text">{msg.content}</p>
+              ) : (
+                // アシスタントメッセージはマークダウンとして表示
+                <div className="markdown-content">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkBreaks]}
+                    components={markdownComponents}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="message-actions">
