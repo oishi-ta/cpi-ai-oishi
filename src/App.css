@@ -29,6 +29,7 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
+  --background-selected-hover: #d1d5db; /* ←追加 */
 }
 
 /* --- リセット・ベーススタイル --- */
@@ -155,7 +156,145 @@ button:focus-visible {
   padding: 8px 12px;
   background-color: var(--background-main);
   color: var(--foreground);
+  white-space: pre-line;
 }
+
+.model-selector-dropdown {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.model-selector-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--foreground);
+}
+
+.custom-select {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--background-main);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.custom-select-trigger:hover {
+  border-color: var(--border-hover);
+}
+
+.selected-model {
+  flex: 1;
+}
+
+.selected-model-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.selected-model-description {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+  color: var(--foreground-secondary);
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.custom-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background-color: var(--background-main);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.option-group {
+  border-bottom: 1px solid var(--border);
+}
+
+.option-group:last-child {
+  border-bottom: none;
+}
+
+.option-group-label {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground-secondary);
+  background-color: var(--background-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.option-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.option-item:last-child {
+  border-bottom: none;
+}
+
+.option-item:hover {
+  background-color: var(--background-hover);
+}
+
+.option-item.selected {
+  background-color: var(--background-selected);
+}
+
+.option-item:hover {
+  background-color: var(--background-selected-hover);
+}
+
+.option-item.selected {
+  background-color: var(--background-selected-hover);
+}
+
+.option-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.option-description {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
 
 .new-chat-button {
   display: flex;
@@ -212,6 +351,7 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding-left: 0;
 }
 
 .history-nav li {
@@ -438,18 +578,18 @@ button:focus-visible {
   color: var(--foreground-muted);
   background-color: transparent;
   transition: all 0.15s ease;
-  padding: 0.6em;
+  padding: 0;
+}
+
+.action-icon svg{
+  width: 14px!important;
+  height: 14px!important;
 }
 
 .action-icon:hover {
   background-color: var(--secondary);
   color: var(--foreground);
   transform: scale(1.05);
-}
-
-.action-icon svg {
-  width: 18px !important;
-  height: 18px !important;
 }
 
 .copied-feedback {
@@ -1546,5 +1686,192 @@ button:focus-visible {
   .send-icon-button {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+
+/* --- App.css の末尾に追記 --- */
+
+/* 入力エリアの添付ボタン */
+.prompt-input-container {
+  padding: 8px 8px 8px 12px; /* 左パディングを調整 */
+}
+
+.attach-icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--foreground-muted);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-right: 4px;
+  padding: 0.6em;
+}
+
+.attach-icon-button:hover:not(:disabled) {
+  background-color: var(--secondary);
+  color: var(--primary);
+}
+
+.attach-icon-button:disabled {
+  color: var(--border);
+  cursor: not-allowed;
+}
+
+.prompt-textarea {
+  padding-left: 8px;
+}
+
+
+/* 入力エリアのファイルプレビュー */
+.file-preview-container {
+  width: 100%;
+  max-width: 900px;
+  padding: 0 8px;
+  margin-bottom: -8px; /* prompt-input-wrapper の gap と調整 */
+  margin-top: -8px;
+}
+
+.file-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--accent);
+  border: 1px solid var(--border);
+  padding: 6px 8px 6px 12px;
+  border-radius: var(--radius-lg);
+  max-width: 100%;
+  box-shadow: var(--shadow-xs);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.file-preview-image {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.file-preview-icon {
+  font-size: 24px;
+  color: var(--primary);
+}
+
+.file-preview-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.file-preview-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: rgba(0,0,0,0.1);
+  color: var(--foreground-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.file-preview-remove svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.file-preview-remove:hover {
+  background-color: rgba(0,0,0,0.2);
+  color: var(--foreground);
+  transform: scale(1.1);
+}
+
+
+/* チャット内の添付ファイル表示 */
+.message-attachment {
+  margin-bottom: 12px;
+}
+
+.attachment-image {
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+.attachment-file {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--background-main);
+  max-width: 320px;
+}
+
+.attachment-file-icon {
+  font-size: 28px;
+  color: var(--foreground-muted);
+}
+
+.attachment-file-name {
+  font-size: 14px;
+  color: var(--foreground);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-message-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.message-attachment + .user-message-text:not(:empty) {
+  margin-top: 12px;
+}
+
+/* 既存のモデルタグのスタイルにclaude-3-5-sonnet-v2を追加 */
+.model-tag.model-claude-3-5-sonnet-v2 {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF9C3 100%);
+  color: #854D0E;
+  border: 1px solid #FDE68A;
+}
+
+
+/* モバイル向け調整 */
+@media (max-width: 768px) {
+  .attach-icon-button {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  .prompt-textarea {
+    padding-left: 4px;
+  }
+  .file-preview-name {
+    max-width: 150px;
+  }
+  .attachment-image {
+    max-width: 100%;
   }
 }

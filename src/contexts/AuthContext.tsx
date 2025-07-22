@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 interface User {
   email?: string;
   id_token?: string;
+  access_token?: string;
+  refresh_token?: string;
   profile: {
     email?: string;
   };
@@ -44,12 +46,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userData: User = {
               email: userInfo.email,
               id_token: tokenResponse.id_token,
+              access_token: tokenResponse.access_token,
+              refresh_token: tokenResponse.refresh_token,
               profile: {
                 email: userInfo.email
               }
             };
             
-            sessionStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('user', JSON.stringify(userData));
             setUser(userData);
             setIsAuthenticated(true);
             
@@ -57,12 +61,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             window.history.replaceState({}, document.title, window.location.pathname);
           }
         } else {
-          // セッションストレージから認証情報を確認
-          const storedUser = sessionStorage.getItem('user');
+          // localStorageから認証情報を確認
+          const storedUser = localStorage.getItem('user');
           if (storedUser) {
             const userData = JSON.parse(storedUser);
-            setUser(userData);
-            setIsAuthenticated(true);
+            
+            // トークンの有効性をチェック
+            const isValid = await validateAndRefreshToken(userData);
+            if (isValid) {
+              setUser(userData);
+              setIsAuthenticated(true);
+            } else {
+              // 無効な場合は削除
+              localStorage.removeItem('user');
+            }
           }
         }
       } catch (err) {
@@ -74,14 +86,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     checkAuth();
+
+    // 定期的にトークンをチェック（12時間ごと）
+    const tokenCheckInterval = setInterval(async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        const isValid = await validateAndRefreshToken(userData);
+        if (!isValid) {
+          await removeUser();
+        }
+      }
+    }, 12 * 60 * 60 * 1000); // 12時間ごと
+
+    return () => {
+      clearInterval(tokenCheckInterval);
+    };
   }, []);
+
+  // トークンの有効性チェック&リフレッシュ
+  const validateAndRefreshToken = async (userData: User): Promise<boolean> => {
+    try {
+      if (!userData.id_token) return false;
+
+      const tokenPayload = decodeIdToken(userData.id_token);
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      // 期限が切れる2時間前にリフレッシュ
+      if (tokenPayload.exp && (tokenPayload.exp <= currentTime + 7200)) {
+        if (userData.refresh_token) {
+          const refreshedTokens = await refreshTokens(userData.refresh_token);
+          if (refreshedTokens) {
+            // 新しいトークンでユーザーデータを更新
+            const updatedUser = {
+              ...userData,
+              id_token: refreshedTokens.id_token,
+              access_token: refreshedTokens.access_token,
+              refresh_token: refreshedTokens.refresh_token || userData.refresh_token,
+            };
+            
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('トークン検証エラー:', error);
+      return false;
+    }
+  };
+
+  // リフレッシュトークンを使用してトークンを更新
+  const refreshTokens = async (refreshToken: string) => {
+    try {
+      const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
+      
+      const params = new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        refresh_token: refreshToken,
+      });
+
+      const response = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('トークンリフレッシュエラー:', errorData);
+        throw new Error(`リフレッシュトークンの更新に失敗: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('トークンリフレッシュエラー:', error);
+      return null;
+    }
+  };
 
   const exchangeCodeForToken = async (code: string) => {
     try {
       const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
       
-      // PKCE対応の場合、code_verifierが必要
-      // 今回はpublicクライアントとして実装
       const params = new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: clientId,
@@ -139,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const removeUser = async () => {
-    sessionStorage.removeItem('user');
+    localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
   };

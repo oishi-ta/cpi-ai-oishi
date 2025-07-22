@@ -1,6 +1,5 @@
-// src/components/Sidebar.tsx
-import React from 'react';
-import { LuPlus } from 'react-icons/lu';
+import React, { useState, useRef, useEffect } from 'react';
+import { LuChevronDown, LuPlus } from 'react-icons/lu';
 import { type ChatThread } from './MainContent';
 
 interface SidebarProps {
@@ -11,9 +10,8 @@ interface SidebarProps {
   userEmail: string | undefined;
   onSignOut: () => void;
   className?: string;
-  // モデル選択用のProps（拡張）
-  model: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4';
-  onModelChange: (newModel: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4') => void;
+  model: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-sonnet-4';
+  onModelChange: (newModel: 'nova-lite' | 'nova-pro' | 'claude-3-7-sonnet' | 'claude-sonnet-4') => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -27,22 +25,51 @@ const Sidebar: React.FC<SidebarProps> = ({
   model,
   onModelChange,
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectRef = useRef<HTMLDivElement>(null);
+
   const getModelDisplayName = (modelId: string) => {
     switch (modelId) {
       case 'nova-lite': return 'Nova Lite';
       case 'nova-pro': return 'Nova Pro';
       case 'claude-3-7-sonnet': return 'Claude 3.7 Sonnet';
-      case 'claude-3-5-sonnet-v2': return 'Claude 3.5 Sonnet V2';
       case 'claude-sonnet-4': return 'Claude Sonnet 4';
       default: return modelId;
+    }
+  };
+
+  const getModelDescription = (modelId: string) => {
+    switch (modelId) {
+      case 'nova-lite': return '低コスト、日常的なタスク';
+      case 'nova-pro': return '低コスト、複雑な推論タスク';
+      case 'claude-3-7-sonnet': return '中コスト、高度な推論能力';
+      case 'claude-sonnet-4': return '高コスト、最上位モデル';
+      default: return '';
     }
   };
 
   // モデルの定義配列
   const modelOptions = [
     { group: 'Amazon Nova', models: ['nova-lite', 'nova-pro'] },
-    { group: 'Anthropic Claude', models: ['claude-3-5-sonnet-v2', 'claude-3-7-sonnet', 'claude-sonnet-4'] }
+    { group: 'Anthropic Claude', models: ['claude-3-7-sonnet', 'claude-sonnet-4'] }
   ] as const;
+
+  // 外部クリックでドロップダウンを閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleOptionClick = (selectedModel: string) => {
+    onModelChange(selectedModel as typeof model);
+    setIsOpen(false);
+  };
 
   return (
     <aside className={`sidebar ${className}`}>
@@ -50,26 +77,40 @@ const Sidebar: React.FC<SidebarProps> = ({
         CPI社内文書AI
       </div>
 
-      {/* モデル選択プルダウン */}
-      <div className="model-selector-dropdown">
-        <label className="model-selector-label">
-          AIモデル: {getModelDisplayName(model)}
-        </label>
-        <select 
-          className="model-selector-select"
-          value={model}
-          onChange={(e) => onModelChange(e.target.value as typeof model)}
-        >
-          {modelOptions.map((group) => (
-            <optgroup key={group.group} label={group.group}>
-              {group.models.map((modelId) => (
-                <option key={modelId} value={modelId}>
-                  {getModelDisplayName(modelId)}
-                </option>
+      {/* カスタムモデル選択ドロップダウン */}
+      <div className="model-selector-dropdown" ref={selectRef}>
+        <div className="custom-select">
+          <div 
+            className="custom-select-trigger"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <div className="selected-model">
+              <div className="selected-model-name">{getModelDisplayName(model)}</div>
+              <div className="selected-model-description">{getModelDescription(model)}</div>
+            </div>
+            <LuChevronDown className={`chevron ${isOpen ? 'open' : ''}`} />
+          </div>
+          
+          {isOpen && (
+            <div className="custom-select-dropdown">
+              {modelOptions.map((group) => (
+                <div key={group.group} className="option-group">
+                  <div className="option-group-label">{group.group}</div>
+                  {group.models.map((modelId) => (
+                    <div
+                      key={modelId}
+                      className={`option-item ${model === modelId ? 'selected' : ''}`}
+                      onClick={() => handleOptionClick(modelId)}
+                    >
+                      <div className="option-name">{getModelDisplayName(modelId)}</div>
+                      <div className="option-description">{getModelDescription(modelId)}</div>
+                    </div>
+                  ))}
+                </div>
               ))}
-            </optgroup>
-          ))}
-        </select>
+            </div>
+          )}
+        </div>
       </div>
 
       <button onClick={onNewChat} className="new-chat-button">
