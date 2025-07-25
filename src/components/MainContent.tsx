@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect } from 'react';
-import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuMenu, LuX, LuPaperclip } from 'react-icons/lu';
+import { LuSendHorizontal, LuUser, LuBot, LuCopy, LuMenu, LuX, LuPaperclip, LuSquare } from 'react-icons/lu';
 import { IoArrowDown, IoDocumentTextOutline } from 'react-icons/io5';
 import TextareaAutosize from 'react-textarea-autosize';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import SearchResults from './SearchResults';
 
 // 型定義（S3併用対応）
 export interface Message {
@@ -34,12 +35,24 @@ export interface ChatThread {
   messages: Message[];
 }
 
+// 検索結果の型定義
+interface SearchResult {
+  chatId: string;
+  title: string;
+  matchedContent: string;
+  matchType: 'title' | 'content';
+  score: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface MainContentProps {
   messages: Message[];
   promptInput: string;
   isLoading: boolean;
   onPromptChange: (newPrompt: string) => void;
   onSendPrompt: () => void;
+  onStopGeneration?: () => void; // 新しいプロパティ: 生成停止関数
   mode: 'knowledge_base' | 'general';
   onModeChange: (newMode: 'knowledge_base' | 'general') => void;
   onToggleSidebar?: () => void;
@@ -51,6 +64,14 @@ interface MainContentProps {
   isUploading?: boolean;
   uploadProgress?: number;
   uploadError?: string | null;
+  // 検索関連のプロパティ
+  searchResults?: SearchResult[];
+  searchQuery?: string;
+  isSearching?: boolean;
+  searchError?: string | null;
+  isSearchMode?: boolean;
+  onSearchResultClick?: (chatId: string) => void;
+  activeChatId?: string | null;
 }
 
 // 遅延読み込み画像コンポーネント
@@ -251,6 +272,7 @@ const MainContent: React.FC<MainContentProps> = ({
   isLoading,
   onPromptChange,
   onSendPrompt,
+  onStopGeneration,
   mode,
   onModeChange,
   onToggleSidebar,
@@ -261,24 +283,31 @@ const MainContent: React.FC<MainContentProps> = ({
   isUploading = false,
   uploadProgress = 0,
   uploadError = null,
+  // 検索関連のプロパティ
+  searchResults = [],
+  searchQuery = '',
+  isSearching = false,
+  searchError = null,
+  isSearchMode = false,
+  onSearchResultClick,
+  activeChatId = null
 }) => {
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const promptTextareaRef = useRef<HTMLTextAreaElement>(null); // TextareaAutosize用のref
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-
   const [shouldFocus, setShouldFocus] = useState(false);
 
   useLayoutEffect(() => {
     const chatArea = chatAreaRef.current;
-    if (chatArea && messages.length > 0) {
+    if (chatArea && messages.length > 0 && !isSearchMode) {
       const originalBehavior = chatArea.style.scrollBehavior;
       chatArea.style.scrollBehavior = 'auto';
       chatArea.scrollTop = chatArea.scrollHeight;
       chatArea.style.scrollBehavior = originalBehavior;
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isSearchMode]);
 
   // promptInputが空になった時にフォーカスを戻す
   React.useEffect(() => {
@@ -303,24 +332,35 @@ const MainContent: React.FC<MainContentProps> = ({
     }
   };
 
-  // 送信処理
-  const handleSendPrompt = () => {
-    if (isLoading || isUploading || (!promptInput.trim() && !attachedFile)) return;
-    
-    setShouldFocus(true); // フォーカスフラグを立てる
-    onSendPrompt();
-    
-    // 送信後にフォーカスを戻す（少し遅延させる）
-    setTimeout(() => {
-      promptTextareaRef.current?.focus();
-    }, 10);
+  // 送信または停止処理
+  const handleSendOrStop = () => {
+    if (isLoading) {
+      // 生成中の場合は停止
+      if (onStopGeneration) {
+        onStopGeneration();
+      }
+    } else {
+      // 生成中でない場合は送信
+      if (isUploading || (!promptInput.trim() && !attachedFile)) return;
+      
+      setShouldFocus(true);
+      onSendPrompt();
+      
+      setTimeout(() => {
+        promptTextareaRef.current?.focus();
+      }, 10);
+    }
   };
 
   // Enterキーでの送信処理
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // スマホ・タブレットではEnterキーでの送信を無効化
+    const isMobile = window.innerWidth <= 768;
+    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
       e.preventDefault();
-      handleSendPrompt();
+      if (!isLoading) {
+        handleSendOrStop();
+      }
     }
   };
   
@@ -366,7 +406,7 @@ const MainContent: React.FC<MainContentProps> = ({
         alert('画像(JPG, PNG, GIFなど)またはPDFファイルを選択してください。');
       }
     }
-    event.target.value = ''; // 同じファイルを再度選択できるようにリセット
+    event.target.value = '';
   };
 
   // マークダウンコンポーネントの設定
@@ -408,7 +448,6 @@ const MainContent: React.FC<MainContentProps> = ({
             <div className="message-text">
               {msg.role === 'user' ? (
                 <>
-                  {/* S3併用方式の添付ファイル表示 */}
                   {msg.attachment && (
                     <div className="message-attachment" style={{ marginBottom: '12px' }}>
                       <AttachmentDisplay attachment={msg.attachment} />
@@ -478,151 +517,168 @@ const MainContent: React.FC<MainContentProps> = ({
       </div>
 
       <div className="chat-area-wrapper">
-        <div className="chat-area" ref={chatAreaRef} onScroll={handleScroll}>
-          {messages.map(renderMessage)}
-        </div>
-        
-        {showScrollToBottom && (
-          <button className="scroll-to-bottom-button" onClick={scrollToBottom} title="一番下へ移動">
-            <IoArrowDown />
-          </button>
+        {/* 検索モード時は検索結果を表示、通常時はチャットメッセージを表示 */}
+        {isSearchMode ? (
+          <SearchResults
+            results={searchResults}
+            query={searchQuery}
+            isLoading={isSearching}
+            error={searchError}
+            onResultClick={onSearchResultClick || (() => {})}
+            activeChatId={activeChatId}
+          />
+        ) : (
+          <>
+            <div className="chat-area" ref={chatAreaRef} onScroll={handleScroll}>
+              {messages.map(renderMessage)}
+            </div>
+            
+            {showScrollToBottom && (
+              <button className="scroll-to-bottom-button" onClick={scrollToBottom} title="一番下へ移動">
+                <IoArrowDown />
+              </button>
+            )}
+          </>
         )}
         
-        <div className="prompt-input-wrapper">
-          
-          {/* モード選択セクション */}
-          <div className="mode-selector">
-            <label className="radio-label">
-              <input 
-                type="radio" 
-                name="chatMode" 
-                value="knowledge_base"
-                checked={mode === 'knowledge_base'}
-                onChange={() => onModeChange('knowledge_base')}
-                disabled={isLoading || !!attachedFile}
-              />
-              <span>社内データのみ</span>
-            </label>
-            <label className="radio-label">
-              <input 
-                type="radio" 
-                name="chatMode" 
-                value="general"
-                checked={mode === 'general'}
-                onChange={() => onModeChange('general')}
-                disabled={isLoading}
-              />
-              <span>通常生成AI利用</span>
-            </label>
-          </div>
+        {/* 検索モード時は入力エリアを非表示 */}
+        {!isSearchMode && (
+          <div className="prompt-input-wrapper">
+            
+            {/* モード選択セクション */}
+            <div className="mode-selector">
+              <label className="radio-label">
+                <input 
+                  type="radio" 
+                  name="chatMode" 
+                  value="knowledge_base"
+                  checked={mode === 'knowledge_base'}
+                  onChange={() => onModeChange('knowledge_base')}
+                  disabled={isLoading || !!attachedFile}
+                />
+                <span>社内データのみ</span>
+              </label>
+              <label className="radio-label">
+                <input 
+                  type="radio" 
+                  name="chatMode" 
+                  value="general"
+                  checked={mode === 'general'}
+                  onChange={() => onModeChange('general')}
+                  disabled={isLoading}
+                />
+                <span>通常生成AI利用</span>
+              </label>
+            </div>
 
-          {/* アップロード進捗表示 */}
-          {isUploading && (
-            <div className="upload-progress" style={{
-              padding: '8px 12px',
-              backgroundColor: '#e3f2fd',
-              borderRadius: '4px',
-              marginBottom: '8px'
-            }}>
-              <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                ファイル処理中... {uploadProgress}%
-              </div>
-              <div style={{
-                width: '100%',
-                height: '4px',
-                backgroundColor: '#ddd',
-                borderRadius: '2px',
-                overflow: 'hidden'
+            {/* アップロード進捗表示 */}
+            {isUploading && (
+              <div className="upload-progress" style={{
+                padding: '8px 12px',
+                backgroundColor: '#e3f2fd',
+                borderRadius: '4px',
+                marginBottom: '8px'
               }}>
+                <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                  ファイル処理中... {uploadProgress}%
+                </div>
                 <div style={{
-                  width: `${uploadProgress}%`,
-                  height: '100%',
-                  backgroundColor: '#2196f3',
-                  transition: 'width 0.3s ease'
-                }} />
+                  width: '100%',
+                  height: '4px',
+                  backgroundColor: '#ddd',
+                  borderRadius: '2px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${uploadProgress}%`,
+                    height: '100%',
+                    backgroundColor: '#2196f3',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* エラー表示 */}
-          {uploadError && (
-            <div className="upload-error" style={{
-              padding: '8px 12px',
-              backgroundColor: '#ffebee',
-              color: '#c62828',
-              borderRadius: '4px',
-              marginBottom: '8px',
-              fontSize: '14px'
-            }}>
-              ❌ {uploadError}
-            </div>
-          )}
-
-          {/* ファイルプレビュー */}
-          {attachedFile && (
-            <div className="file-preview-container">
-              <div className="file-preview">
-                <div className="file-preview-icon"><IoDocumentTextOutline /></div>
-                <span className="file-preview-name">
-                  {attachedFile.fileName || attachedFile.name}
-                  {attachedFile.size && ` (${Math.round(attachedFile.size / 1024)}KB)`}
-                </span>
-                <button className="file-preview-remove" onClick={onFileRemove} title="ファイルを削除">
-                  <LuX />
-                </button>
+            {/* エラー表示 */}
+            {uploadError && (
+              <div className="upload-error" style={{
+                padding: '8px 12px',
+                backgroundColor: '#ffebee',
+                color: '#c62828',
+                borderRadius: '4px',
+                marginBottom: '8px',
+                fontSize: '14px'
+              }}>
+                ❌ {uploadError}
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="prompt-input-container">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-              accept="image/*,application/pdf"
-            />
-            <button
-              className="attach-icon-button"
-              onClick={handleAttachClick}
-              disabled={isLoading || isUploading || !!attachedFile || mode !== 'general'}
-              title={
-                mode !== 'general' 
-                  ? "通常生成AI利用モードで添付可能です" 
-                  : isUploading 
-                  ? "ファイル処理中です" 
-                  : "ファイルを添付（最大3.75MB）"
-              }
-            >
-              <LuPaperclip />
-            </button>
-            <TextareaAutosize
-              ref={promptTextareaRef} // refを設定
-              className="prompt-textarea"
-              value={promptInput}
-              onChange={(e) => onPromptChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                mode === 'knowledge_base' 
-                  ? "ご自由に入力してください..."
-                  : attachedFile 
-                  ? "画像について質問してください..." 
-                  : "ご自由に入力してください... (画像・PDFも添付可、最大3.75MB)"
-              }
-              disabled={isLoading || isUploading}
-              rows={1}
-              maxRows={10}
-            />
-            <button 
-              className="send-icon-button"
-              onClick={handleSendPrompt}
-              disabled={isLoading || isUploading || (!promptInput.trim() && !attachedFile)}
-              title="送信"
-            >
-              <LuSendHorizontal />
-            </button>
+            {/* ファイルプレビュー */}
+            {attachedFile && (
+              <div className="file-preview-container">
+                <div className="file-preview">
+                  <div className="file-preview-icon"><IoDocumentTextOutline /></div>
+                  <span className="file-preview-name">
+                    {attachedFile.fileName || attachedFile.name}
+                    {attachedFile.size && ` (${Math.round(attachedFile.size / 1024)}KB)`}
+                  </span>
+                  <button className="file-preview-remove" onClick={onFileRemove} title="ファイルを削除">
+                    <LuX />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="prompt-input-container">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                accept="image/*,application/pdf"
+              />
+              <button
+                className="attach-icon-button"
+                onClick={handleAttachClick}
+                disabled={isLoading || isUploading || !!attachedFile || mode !== 'general'}
+                title={
+                  mode !== 'general' 
+                    ? "通常生成AI利用モードで添付可能です" 
+                    : isUploading 
+                    ? "ファイル処理中です" 
+                    : "ファイルを添付（最大3.75MB）"
+                }
+              >
+                <LuPaperclip />
+              </button>
+              <TextareaAutosize
+                ref={promptTextareaRef}
+                className="prompt-textarea"
+                value={promptInput}
+                onChange={(e) => onPromptChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  mode === 'knowledge_base' 
+                    ? "ご自由に入力してください..."
+                    : attachedFile 
+                    ? "画像について質問してください..." 
+                    : "ご自由に入力してください... (画像・PDFも添付可、最大3.75MB)"
+                }
+                disabled={isLoading || isUploading}
+                rows={1}
+                maxRows={10}
+              />
+              <button 
+                className={`send-icon-button ${isLoading ? 'stop-button' : ''}`}
+                onClick={handleSendOrStop}
+                disabled={isUploading || (!isLoading && !promptInput.trim() && !attachedFile)}
+                title={isLoading ? "生成を停止" : "送信"}
+              >
+                {isLoading ? <LuSquare /> : <LuSendHorizontal />}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

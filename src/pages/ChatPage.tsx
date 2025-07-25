@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import Sidebar from '../components/Sidebar';
 import MainContent, { type ChatThread, type Message } from '../components/MainContent';
 import SignOutConfirmationModal from '../components/SignOutConfirmationModal';
@@ -21,8 +22,33 @@ interface FileAttachment {
   displayUrl: string;  // 表示用URL
 }
 
-function ChatPage() {
-  const auth = useAuth();
+// 検索結果の型定義
+interface SearchResult {
+  chatId: string;
+  title: string;
+  matchedContent: string;
+  matchType: 'title' | 'content';
+  score: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SearchResponse {
+  results: SearchResult[];
+  totalCount: number;
+  query: string;
+  limit: number;
+  offset: number;
+}
+
+interface ChatPageProps {
+  user: any;
+  signOut: () => void;
+}
+
+function ChatPage({ user, signOut }: ChatPageProps) {
+  const [searchParams] = useSearchParams();
+  
   const [prompt, setPrompt] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [chats, setChats] = useState<ChatThread[]>([]);
@@ -37,6 +63,16 @@ function ChatPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  
+  // 削除関連の状態
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
+
+  // 検索関連の状態
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearchMode, setIsSearchMode] = useState<boolean>(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentStreamingMessageIdRef = useRef<string | null>(null);
@@ -46,19 +82,81 @@ function ChatPage() {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // 最新のトークンを取得するヘルパー関数（修正版）
-  const getCurrentToken = () => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        return userData.id_token;
-      } catch (error) {
-        console.error('localStorage parsing error:', error);
-        localStorage.removeItem('user');
-      }
+  // Amplify Auth APIを使用したトークン取得
+  const getCurrentToken = async (): Promise<string | null> => {
+    try {
+      const session = await fetchAuthSession();
+      return session.tokens?.idToken?.toString() || null;
+    } catch (error) {
+      console.error('トークン取得エラー:', error);
+      return null;
     }
-    return null;
+  };
+
+  // 認証済みユーザーの情報取得
+  const userEmail = user?.signInDetails?.loginId || user?.username || user?.attributes?.email;
+
+  // 検索API関数
+  const searchChats = async (query: string, limit: number = 20, offset: number = 0): Promise<SearchResponse> => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
+      const currentToken = await getCurrentToken();
+      
+      if (!currentToken) {
+        throw new Error('認証トークンが取得できません');
+      }
+      
+      const encodedQuery = encodeURIComponent(query);
+      const url = `${apiBaseUrl}/search?q=${encodedQuery}&limit=${limit}&offset=${offset}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${currentToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`検索エラー: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('検索APIエラー:', error);
+      throw error;
+    }
+  };
+
+  // 検索実行ハンドラー
+  const handleSearchSubmit = async (query: string) => {
+    setIsSearching(true);
+    setSearchError(null);
+    setSearchQuery(query);
+    setIsSearchMode(true);
+
+  // モバイルサイドバーを閉じる
+  setIsMobileSidebarOpen(false);
+  
+    try {
+      const response = await searchChats(query, 20, 0);
+      setSearchResults(response.results);
+    } catch (error) {
+      console.error('検索エラー:', error);
+      setSearchError('検索中にエラーが発生しました');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 検索結果クリックハンドラー
+  const handleSearchResultClick = (chatId: string) => {
+    // 検索モードを終了
+    setIsSearchMode(false);
+    
+    // チャットを選択
+    setActiveChatId(chatId);
   };
 
   // ファイルサイズ制限（Bedrock制限に合わせて3.75MB）
@@ -103,10 +201,10 @@ function ChatPage() {
     });
   };
 
-  // Presigned URL取得（修正版）
+  // Presigned URL取得
   const getPresignedUrl = async (fileName: string, fileType: string) => {
     const apiBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
-    const currentToken = getCurrentToken();
+    const currentToken = await getCurrentToken();
     
     if (!currentToken) {
       throw new Error('認証トークンが取得できません');
@@ -162,11 +260,11 @@ function ChatPage() {
     return s3Key;
   };
 
-  // S3から画像を取得する関数（修正版）
+  // S3から画像を取得する関数
   const fetchImageFromS3 = async (s3Key: string): Promise<{base64Data: string; contentType: string}> => {
     try {
       const apiBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
-      const currentToken = getCurrentToken();
+      const currentToken = await getCurrentToken();
       
       if (!currentToken) {
         throw new Error('認証トークンが取得できません');
@@ -192,9 +290,72 @@ function ChatPage() {
     }
   };
 
-  // チャット履歴取得（修正版）
+  // チャット削除API呼び出し
+  const deleteChatFromServer = async (chatId: string): Promise<boolean> => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
+      const currentToken = await getCurrentToken();
+      
+      if (!currentToken) {
+        console.error('認証トークンが取得できません');
+        return false;
+      }
+      
+      const response = await fetch(`${apiBaseUrl}/chats/${chatId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${currentToken}` }
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error("チャット削除APIエラー:", error);
+      return false;
+    }
+  };
+
+  // ★ 停止機能
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      console.log('Generation stopped by user');
+      abortControllerRef.current.abort();
+      setIsLoading(false);
+      
+      // 停止メッセージを追加
+      if (currentStreamingMessageIdRef.current) {
+        setChats(prevChats => prevChats.map(chat => {
+          const targetChatId = activeChatId || `streaming-${currentStreamingMessageIdRef.current?.split('-')[0]}`;
+          if (chat.id !== targetChatId) return chat;
+          
+          return {
+            ...chat,
+            messages: chat.messages.map(msg => 
+              msg.id === currentStreamingMessageIdRef.current && msg.role === 'assistant'
+                ? { ...msg, content: msg.content + '\n\n[生成が停止されました]' }
+                : msg
+            )
+          };
+        }));
+      }
+      
+      abortControllerRef.current = null;
+      currentStreamingMessageIdRef.current = null;
+    }
+  };
+
+  // URL パラメータからチャットIDを取得してアクティブにする
   useEffect(() => {
-    if (!auth.isAuthenticated) {
+    const chatIdFromUrl = searchParams.get('chatId');
+    if (chatIdFromUrl && chats.length > 0) {
+      const targetChat = chats.find(chat => chat.id === chatIdFromUrl);
+      if (targetChat && activeChatId !== chatIdFromUrl) {
+        setActiveChatId(chatIdFromUrl);
+      }
+    }
+  }, [searchParams, chats, activeChatId]);
+
+  // チャット履歴取得
+  useEffect(() => {
+    if (!user) {
       setChats([]);
       return;
     }
@@ -202,7 +363,7 @@ function ChatPage() {
     const fetchChatList = async () => {
       try {
         const apiBaseUrl = import.meta.env.VITE_APP_API_BASE_URL;
-        const currentToken = getCurrentToken();
+        const currentToken = await getCurrentToken();
         
         if (!currentToken) {
           console.error('認証トークンが取得できません');
@@ -226,11 +387,11 @@ function ChatPage() {
     };
 
     fetchChatList();
-  }, [auth.isAuthenticated]);
+  }, [user]);
 
-  // 履歴取得関数（修正版）
+  // 履歴取得関数
   const fetchChatHistory = async (chatId: string) => {
-    const currentToken = getCurrentToken();
+    const currentToken = await getCurrentToken();
     if (!currentToken) {
       console.error('認証トークンが取得できません');
       return;
@@ -323,21 +484,42 @@ function ChatPage() {
     setActiveChatId(null);
     
     try {
-      await auth.removeUser();
+      await signOut();
     } catch (error) {
-      console.error("ローカルセッションクリアエラー:", error);
+      console.error("サインアウトエラー:", error);
     }
-    
-    const cognitoDomain = import.meta.env.VITE_APP_COGNITO_DOMAIN;
-    const clientId = import.meta.env.VITE_APP_COGNITO_CLIENT_ID;
-    const postLogoutRedirectUri = import.meta.env.VITE_APP_POST_LOGOUT_REDIRECT_URI || import.meta.env.VITE_APP_REDIRECT_URI;
-    
-    const logoutUrl = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(postLogoutRedirectUri)}`;
-    window.location.href = logoutUrl;
   };
 
   const handleCancelSignOut = () => {
     setShowSignOutModal(false);
+  };
+
+  // チャット削除ハンドラー
+  const handleChatDelete = async (chatId: string) => {
+    if (isDeletingChat) return;
+    
+    setIsDeletingChat(true);
+    
+    try {
+      const success = await deleteChatFromServer(chatId);
+      
+      if (success) {
+        // ローカル状態から削除
+        setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+        
+        // 削除されたチャットがアクティブだった場合、アクティブチャットをクリア
+        if (activeChatId === chatId) {
+          setActiveChatId(null);
+        }
+      } else {
+        alert('チャットの削除に失敗しました。');
+      }
+    } catch (error) {
+      console.error('チャット削除エラー:', error);
+      alert('チャットの削除中にエラーが発生しました。');
+    } finally {
+      setIsDeletingChat(false);
+    }
   };
 
   // S3併用のファイル添付ハンドラー（圧縮版）
@@ -446,14 +628,14 @@ function ChatPage() {
     setUploadError(null);
   };
 
-  // メッセージ送信処理（修正版）
+  // メッセージ送信処理
   const handleSendPrompt = async () => {
-    const currentToken = getCurrentToken();
+    const currentToken = await getCurrentToken();
     
     if ((!prompt.trim() && !attachedFile) || !currentToken) {
       if (!currentToken) {
         alert("認証エラーが発生しました。再度ログインしてください。");
-        auth.signinRedirect();
+        await signOut();
       } else {
         alert("メッセージを入力するか、ファイルを添付してください。");
       }
@@ -578,7 +760,7 @@ function ChatPage() {
         return;
       }
 
-      // メッセージIDをLambda関数に送信（修正版）
+      // メッセージIDをLambda関数に送信
       const response = await fetch(lambdaFunctionUrl, {
         method: 'POST',
         headers: {
@@ -669,7 +851,6 @@ function ChatPage() {
                 const eventData = lines[nextLineIndex].slice(6).trim();
                 
                 try {
-                  // ChatPage.tsx - SSEイベント処理部分
                   if (eventType === 'newChat') {
                     const newChatData = JSON.parse(eventData);
                     
@@ -750,6 +931,10 @@ function ChatPage() {
       console.error("SSEリクエストエラー:", error);
       setIsLoading(false);
       
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Request was aborted');
+      }
+      
       if (activeChatId) {
         setActiveChatId(activeChatId);
       }
@@ -759,6 +944,9 @@ function ChatPage() {
   };
 
   const startNewChat = () => {
+    // 検索モードを終了
+    setIsSearchMode(false);
+    
     setActiveChatId(null);
     setPrompt('');
     setAttachedFile(null);
@@ -768,6 +956,9 @@ function ChatPage() {
   };
 
   const handleChatSelect = (chatId: string) => {
+    // 検索モードを終了
+    setIsSearchMode(false);
+    
     if (chatId !== activeChatId) {
       setActiveChatId(chatId);
     }
@@ -802,11 +993,13 @@ function ChatPage() {
         activeChatId={activeChatId}
         onNewChat={startNewChat}
         onChatSelect={handleChatSelect}
-        userEmail={auth.user?.profile.email}
+        onChatDelete={handleChatDelete}
+        userEmail={userEmail}
         onSignOut={handleSignOutRequest}
         className={isMobileSidebarOpen ? 'mobile-open' : ''}
         model={model}
         onModelChange={handleModelChange}
+        onSearchSubmit={handleSearchSubmit}
       />
       
       <MainContent 
@@ -815,6 +1008,7 @@ function ChatPage() {
         isLoading={isLoading}
         onPromptChange={setPrompt}
         onSendPrompt={handleSendPrompt}
+        onStopGeneration={handleStopGeneration}
         mode={mode}
         onModeChange={setMode}
         onToggleSidebar={toggleMobileSidebar}
@@ -822,17 +1016,24 @@ function ChatPage() {
         attachedFile={attachedFile}
         onFileAttach={handleFileAttach}
         onFileRemove={handleFileRemove}
-        // S3併用方式用のプロパティ
         isUploading={isUploading}
         uploadProgress={uploadProgress}
         uploadError={uploadError}
+        // 検索関連のプロパティ
+        searchResults={searchResults}
+        searchQuery={searchQuery}
+        isSearching={isSearching}
+        searchError={searchError}
+        isSearchMode={isSearchMode}
+        onSearchResultClick={handleSearchResultClick}
+        activeChatId={activeChatId}
       />
 
       <SignOutConfirmationModal
         isOpen={showSignOutModal}
         onConfirm={handleConfirmedSignOut}
         onCancel={handleCancelSignOut}
-        userEmail={auth.user?.profile.email}
+        userEmail={userEmail}
       />
     </div>
   );
