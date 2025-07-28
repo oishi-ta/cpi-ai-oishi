@@ -1,16 +1,6 @@
 import React from 'react';
 import { LuMessageSquare, LuSearch } from 'react-icons/lu';
-
-// 検索結果の型定義
-interface SearchResult {
-  chatId: string;
-  title: string;
-  matchedContent: string;
-  matchType: 'title' | 'content';
-  score: number;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { SearchResult } from '../../types/search';
 
 interface SearchResultsProps {
   results: SearchResult[];
