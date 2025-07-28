@@ -7,6 +7,7 @@ import { I18n } from 'aws-amplify/utils';
 import { JA_TRANSLATIONS } from './ja'; // 翻訳ファイルをインポート
 import { translations } from '@aws-amplify/ui-react';
 import ChatPage from './pages/ChatPage';
+import ImageGenerationPage from './pages/ImageGenerationPage';
 import amplifyConfig from './amplifyconfiguration'; // 設定ファイルをインポート
 import '@aws-amplify/ui-react/styles.css';
 import './amplify-ui-theme.css'; // カスタムテーマをインポート
@@ -309,6 +310,15 @@ function App() {
                   path="/chat" 
                   element={
                     <ChatPage 
+                      user={user} 
+                      signOut={handleSignOut}
+                    />
+                  } 
+                />
+                <Route 
+                  path="/image" 
+                  element={
+                    <ImageGenerationPage 
                       user={user} 
                       signOut={handleSignOut}
                     />

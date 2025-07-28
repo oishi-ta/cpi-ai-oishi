@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LuPlus, LuTrash2, LuEllipsis } from 'react-icons/lu';
+import { LuPlus, LuTrash2, LuEllipsis, LuImage } from 'react-icons/lu';
 import type { ChatThread, ModelType } from '../../types/chat';
 import ModelSelector from '../features/ModelSelector';
 import SearchInput from '../features/SearchInput';
@@ -89,6 +89,17 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
 
         <SearchInput onSearchSubmit={onSearchSubmit} />
+        
+        {/* Nova Canvas画像生成ボタン */}
+        <div className="image-generation-nav">
+          <button 
+            onClick={() => window.location.href = '/image'}
+            className="image-generation-button"
+          >
+            <LuImage />
+            Nova Canvas
+          </button>
+        </div>
 
         <button onClick={onNewChat} className="new-chat-button">
           <LuPlus />
