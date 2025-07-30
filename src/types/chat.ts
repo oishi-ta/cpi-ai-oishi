@@ -1,3 +1,4 @@
+// src/types/chat.ts - Message型の簡素化
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -8,12 +9,13 @@ export interface Message {
     fileName: string;
     fileType?: string;
     size?: number;
-    data?: string;
-    s3Key?: string;
-    displayUrl?: string;
-    fileUrl?: string;
-    note?: string;
-    isLoading?: boolean;
+    s3Key?: string;          // 🎯 これが最重要！
+    // 🚀 以下のプロパティは削除（PresignedOnlyImageが自動処理）
+    // data?: string;        // ❌ Base64データ不要
+    // displayUrl?: string;  // ❌ 自動生成されるため不要
+    // fileUrl?: string;     // ❌ 不要
+    // note?: string;        // ❌ エラー表示は自動処理
+    // isLoading?: boolean;  // ❌ コンポーネント内で管理
   };
 }
 

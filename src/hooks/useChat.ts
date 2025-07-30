@@ -1,8 +1,9 @@
+// src/hooks/useChat.ts - 画像復元処理を大幅簡素化
+
 import { useState, useEffect, useRef } from 'react';
 import type { ChatThread, Message, SSEMessage, ChatListItem, ModelType, ChatMode } from '../types/chat';
 import type { FileAttachment } from '../types/file';
 import { chatApi } from '../services/chatApi';
-import { fileApi } from '../services/fileApi';
 
 export const useChat = (user: any) => {
   const [chats, setChats] = useState<ChatThread[]>([]);
@@ -37,47 +38,24 @@ export const useChat = (user: any) => {
     fetchChatList();
   }, [user]);
 
-  // 履歴取得関数
+  // 🎯 履歴取得関数（大幅簡素化）
   const fetchChatHistory = async (chatId: string) => {
     try {
       const messages: Message[] = await chatApi.fetchChatHistory(chatId);
       
-      // 履歴メッセージの画像復元処理
-      const processedMessages = await Promise.all(
-        messages.map(async (message) => {
-          if (message.attachment?.s3Key && message.attachment.fileType?.startsWith('image/')) {
-            try {
-              const imageData = await fileApi.fetchImageFromS3(message.attachment.s3Key);
-              
-              return {
-                ...message,
-                attachment: {
-                  ...message.attachment,
-                  data: imageData.base64Data,
-                  displayUrl: `data:${imageData.contentType};base64,${imageData.base64Data}`
-                }
-              };
-            } catch (error) {
-              console.error('画像復元エラー:', error);
-              return {
-                ...message,
-                attachment: {
-                  ...message.attachment,
-                  note: '画像の読み込みに失敗しました'
-                }
-              };
-            }
-          }
-          return message;
-        })
-      );
+      // 🚀 画像復元処理は不要！
+      // PresignedOnlyImageコンポーネントがs3Keyから自動的に画像を表示するため
+      // 複雑な画像復元処理を完全削除
       
-      // 履歴取得時は完全にメッセージを置き換える
+      // そのままメッセージを設定
       setChats(prevChats => 
         prevChats.map(chat => 
-          chat.id === chatId ? { ...chat, messages: processedMessages } : chat
+          chat.id === chatId ? { ...chat, messages } : chat
         )
       );
+      
+      console.log(`チャット履歴取得完了: ${messages.length}件のメッセージ`);
+      
     } catch (error) {
       console.error("チャット履歴の取得に失敗しました:", error);
     }
@@ -203,7 +181,7 @@ export const useChat = (user: any) => {
       }
     }
 
-    // ユーザーメッセージ（画像表示URL含む）
+    // 🎯 ユーザーメッセージ（簡素化）
     const userMessage: Message = { 
       id: userMessageId,
       role: 'user', 
@@ -212,9 +190,7 @@ export const useChat = (user: any) => {
         fileName: currentFile.fileName,
         fileType: currentFile.fileType,
         size: currentFile.size,
-        data: currentFile.data,
-        s3Key: currentFile.s3Key,
-        displayUrl: currentFile.displayUrl
+        s3Key: currentFile.s3Key  // 🚀 s3Keyのみが重要！
       } : undefined
     };
 
@@ -339,53 +315,24 @@ export const useChat = (user: any) => {
                     const newChatData = JSON.parse(eventData);
                     
                     if (isNewChat) {
-                      // 新しいチャットの画像復元処理
-                      const processedMessages = await Promise.all(
-                        newChatData.messages.map(async (message: any) => {
-                          if (message.attachment?.s3Key && message.attachment.fileType?.startsWith('image/')) {
-                            try {
-                              const imageData = await fileApi.fetchImageFromS3(message.attachment.s3Key);
-                              return {
-                                ...message,
-                                attachment: {
-                                  ...message.attachment,
-                                  data: imageData.base64Data,
-                                  displayUrl: `data:${imageData.contentType};base64,${imageData.base64Data}`
-                                }
-                              };
-                            } catch (error) {
-                              console.error('newChat画像復元エラー:', error);
-                              return {
-                                ...message,
-                                attachment: {
-                                  ...message.attachment,
-                                  note: '画像の読み込みに失敗しました'
-                                }
-                              };
-                            }
-                          }
-                          return message;
-                        })
-                      );
+                      // 🚀 新しいチャットの処理（簡素化）
                       
-                      const restoredChatData = {
-                        ...newChatData,
-                        messages: processedMessages
-                      };
+                      // 画像復元処理は不要！
+                      // PresignedOnlyImageが自動的にs3Keyから画像を表示するため
                       
-                      // ストリーミング用チャットを復元済みチャットで置き換え
+                      // そのままデータを使用
                       setChats(prev => {
                         const streamingIndex = prev.findIndex(c => c.id === `streaming-${userMessageId}`);
                         if (streamingIndex !== -1) {
                           const updatedChats = [...prev];
-                          updatedChats[streamingIndex] = restoredChatData;
+                          updatedChats[streamingIndex] = newChatData;
                           return updatedChats;
                         } else {
-                          return [restoredChatData, ...prev];
+                          return [newChatData, ...prev];
                         }
                       });
                       
-                      setActiveChatId(restoredChatData.id);
+                      setActiveChatId(newChatData.id);
                     }
                   } else if (eventType === 'error') {
                     const errorData = JSON.parse(eventData);
