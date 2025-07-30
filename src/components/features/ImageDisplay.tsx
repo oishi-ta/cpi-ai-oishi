@@ -1,7 +1,7 @@
-// src/components/features/ImageDisplay.tsx - モーダル削除版
+// src/components/features/ImageDisplay.tsx - クリーンアップ版
 
-import React, { useState } from 'react';
-import { LuDownload, LuRefreshCw } from 'react-icons/lu'; // LuInfo削除
+import React from 'react';
+import { LuDownload, LuRefreshCw } from 'react-icons/lu';
 import type { GeneratedImage } from '../../types/image';
 
 interface ImageDisplayProps {
@@ -15,9 +15,6 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   onRegenerate,
   className = ''
 }) => {
-  const [copiedInfo, setCopiedInfo] = useState<string | null>(null);
-  // const [showDetails, setShowDetails] = useState(false); // 詳細表示モーダル削除
-
   const handleDownload = () => {
     try {
       const link = document.createElement('a');
@@ -32,17 +29,6 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
     } catch (error) {
       console.error('ダウンロードエラー:', error);
       alert('ダウンロードに失敗しました');
-    }
-  };
-
-  const handleCopy = async (text: string, type: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedInfo(type);
-      setTimeout(() => setCopiedInfo(null), 2000);
-    } catch (error) {
-      console.error('コピーエラー:', error);
-      alert('コピーに失敗しました');
     }
   };
 
@@ -91,7 +77,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
         </div>
       </div>
 
-      {/* 簡潔な画像情報（モーダルなし） */}
+      {/* 簡潔な画像情報 */}
       <div className="image-simple-info" style={{
         marginTop: '12px',
         padding: '12px',

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // 🎯 追加
-import { LuPlus, LuTrash2, LuEllipsis, LuImage } from 'react-icons/lu';
+import { LuPlus, LuTrash2, LuEllipsis } from 'react-icons/lu';
 import type { ChatThread, ModelType } from '../../types/chat';
 import ModelSelector from '../features/ModelSelector';
 import SearchInput from '../features/SearchInput';
@@ -103,8 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={handleImageGenerationClick} // 🎯 SPAナビゲーション
             className="image-generation-button"
           >
-            <LuImage />
-            Nova Canvas
+            画像生成
           </button>
         </div>
 

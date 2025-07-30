@@ -17,7 +17,7 @@ export const useImageGeneration = () => {
     try {
       setIsGenerating(true);
       setGenerationError(null);
-      setGenerationProgress('Nova Canvasで画像生成中...');
+      setGenerationProgress('画像生成中...');
       
       console.log('画像生成開始:', {
         prompt: request.prompt.substring(0, 50) + '...',

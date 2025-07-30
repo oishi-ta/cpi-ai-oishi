@@ -16,7 +16,6 @@ const PresignedOnlyImage: React.FC<PresignedOnlyImageProps> = ({
   s3Key,
   presignedUrl: initialPresignedUrl,
   expiresAt: initialExpiresAt,
-  mimeType,
   fileName,
   size,
   className = ''

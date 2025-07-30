@@ -12,7 +12,6 @@ interface MultiImageDisplayProps {
 
 const MultiImageDisplay: React.FC<MultiImageDisplayProps> = ({
   images,
-  onRegenerate,
   className = ''
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);

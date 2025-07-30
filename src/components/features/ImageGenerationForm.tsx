@@ -1,6 +1,7 @@
-// src/components/features/ImageGenerationForm.tsx
+// src/components/features/ImageGenerationForm.tsx - Context連携版
 import React, { useState } from 'react';
-import { LuImage, LuRefreshCw, LuSettings } from 'react-icons/lu';
+import { LuRefreshCw, LuSettings } from 'react-icons/lu';
+import { useImageContext } from '../../contexts/ImageContext';
 import type { ImageGenerationRequest } from '../../types/image';
 
 interface ImageGenerationFormProps {
@@ -12,38 +13,36 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
   onGenerate,
   isGenerating
 }) => {
-  const [prompt, setPrompt] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState('');
+  // 🎯 Context からフォーム状態を取得・管理
+  const { formState, updateFormState } = useImageContext();
+  
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [width, setWidth] = useState(512);
-  const [height, setHeight] = useState(512);
-  const [seed, setSeed] = useState<number | null>(null);
-  const [numberOfImages, setNumberOfImages] = useState(1); // 枚数選択を追加
-
+  
   const validSizes = [512, 768, 1024, 1280];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!prompt.trim()) {
+    if (!formState.prompt.trim()) {
       alert('プロンプトを入力してください');
       return;
     }
 
     const request: ImageGenerationRequest = {
-      prompt: prompt.trim(),
-      negativePrompt: negativePrompt.trim() || undefined,
-      width,
-      height,
-      seed: seed || undefined,
-      numberOfImages // 枚数を追加
+      prompt: formState.prompt.trim(),
+      negativePrompt: formState.negativePrompt.trim() || undefined,
+      width: formState.width,
+      height: formState.height,
+      seed: formState.seed || undefined,
+      numberOfImages: formState.numberOfImages
     };
 
     onGenerate(request);
   };
 
   const generateRandomSeed = () => {
-    setSeed(Math.floor(Math.random() * 1000000));
+    const randomSeed = Math.floor(Math.random() * 1000000);
+    updateFormState({ seed: randomSeed });
   };
 
   return (
@@ -56,8 +55,8 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
           </label>
           <textarea
             id="prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            value={formState.prompt}
+            onChange={(e) => updateFormState({ prompt: e.target.value })}
             placeholder="A beautiful sunset landscape with vibrant colors, highly detailed"
             className="form-textarea"
             rows={3}
@@ -65,7 +64,7 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
             required
           />
           <div className="form-hint">
-            生成したい画像を詳しく説明してください（英語推奨）- Nova Canvasで生成されます
+            生成したい画像を詳しく説明してください（英語推奨）<br />Nova Canvasで生成されます
           </div>
         </div>
 
@@ -76,8 +75,8 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
           </label>
           <textarea
             id="negativePrompt"
-            value={negativePrompt}
-            onChange={(e) => setNegativePrompt(e.target.value)}
+            value={formState.negativePrompt}
+            onChange={(e) => updateFormState({ negativePrompt: e.target.value })}
             placeholder="blurry, low quality, distorted"
             className="form-textarea"
             rows={2}
@@ -95,8 +94,8 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
           </label>
           <select
             id="numberOfImages"
-            value={numberOfImages}
-            onChange={(e) => setNumberOfImages(Number(e.target.value))}
+            value={formState.numberOfImages}
+            onChange={(e) => updateFormState({ numberOfImages: Number(e.target.value) })}
             className="form-select"
             disabled={isGenerating}
           >
@@ -131,8 +130,8 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
                 <label htmlFor="width" className="form-label">幅</label>
                 <select
                   id="width"
-                  value={width}
-                  onChange={(e) => setWidth(Number(e.target.value))}
+                  value={formState.width}
+                  onChange={(e) => updateFormState({ width: Number(e.target.value) })}
                   className="form-select"
                   disabled={isGenerating}
                 >
@@ -145,8 +144,8 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
                 <label htmlFor="height" className="form-label">高さ</label>
                 <select
                   id="height"
-                  value={height}
-                  onChange={(e) => setHeight(Number(e.target.value))}
+                  value={formState.height}
+                  onChange={(e) => updateFormState({ height: Number(e.target.value) })}
                   className="form-select"
                   disabled={isGenerating}
                 >
@@ -164,8 +163,8 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
                 <input
                   id="seed"
                   type="number"
-                  value={seed || ''}
-                  onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : null)}
+                  value={formState.seed || ''}
+                  onChange={(e) => updateFormState({ seed: e.target.value ? Number(e.target.value) : null })}
                   placeholder="ランダム"
                   className="form-input"
                   disabled={isGenerating}
@@ -193,7 +192,7 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
         <button
           type="submit"
           className="generate-button"
-          disabled={isGenerating || !prompt.trim()}
+          disabled={isGenerating || !formState.prompt.trim()}
         >
           {isGenerating ? (
             <>
