@@ -1,4 +1,4 @@
-// src/types/image.ts
+// src/types/image.ts - 履歴関連型削除版
 export interface ImageGenerationRequest {
   prompt: string;
   negativePrompt?: string;
@@ -41,12 +41,4 @@ export interface ImageGenerationResponse {
   totalCount?: number; // 生成された画像の総数
   error?: string;
   details?: string;
-}
-
-export interface ImageHistory {
-  id: string;
-  prompt: string;
-  negativePrompt: string;
-  images: GeneratedImage[]; // 複数画像対応（base64データ付き）
-  createdAt: string;
 }

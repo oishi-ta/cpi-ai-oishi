@@ -4,13 +4,14 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { signOut, signUp, confirmSignUp } from 'aws-amplify/auth';
 import { Amplify } from 'aws-amplify';
 import { I18n } from 'aws-amplify/utils';
-import { JA_TRANSLATIONS } from './ja'; // 翻訳ファイルをインポート
+import { JA_TRANSLATIONS } from './ja';
 import { translations } from '@aws-amplify/ui-react';
+import { ImageProvider } from './contexts/ImageContext'; // 🎯 追加
 import ChatPage from './pages/ChatPage';
 import ImageGenerationPage from './pages/ImageGenerationPage';
-import amplifyConfig from './amplifyconfiguration'; // 設定ファイルをインポート
+import amplifyConfig from './amplifyconfiguration';
 import '@aws-amplify/ui-react/styles.css';
-import './amplify-ui-theme.css'; // カスタムテーマをインポート
+import './amplify-ui-theme.css';
 import './App.css';
 
 // Amplify設定を適用
@@ -257,11 +258,11 @@ function App() {
 
   return (
     <Authenticator
-      loginMechanisms={['username']}  // ユーザー名でログイン
-      signUpAttributes={['email']}    // サインアップ時にメールアドレスも必要
+      loginMechanisms={['username']}
+      signUpAttributes={['email']}
       formFields={formFields}
-      services={services}             // カスタムサービスを追加
-      hideSignUp={false}              // サインアップを有効にする
+      services={services}
+      hideSignUp={false}
       passwordSettings={{}}
       components={{
         Header() {
@@ -280,7 +281,6 @@ function App() {
             </div>
           );
         },
-        // 確認コード入力画面（通常の表示）
         ConfirmSignUp: {
           Header() {
             return (
@@ -303,38 +303,41 @@ function App() {
         // 認証済みユーザーがいる場合は通常のアプリを表示
         if (user && !isConfirmationComplete) {
           return (
-            <Router>
-              <Routes>
-                <Route path="/" element={<Navigate to="/chat" replace />} />
-                <Route 
-                  path="/chat" 
-                  element={
-                    <ChatPage 
-                      user={user} 
-                      signOut={handleSignOut}
-                    />
-                  } 
-                />
-                <Route 
-                  path="/chat/:chatId" 
-                  element={
-                    <ChatPage 
-                      user={user} 
-                      signOut={handleSignOut}
-                    />
-                  } 
-                />
-                <Route 
-                  path="/image" 
-                  element={
-                    <ImageGenerationPage 
-                      user={user} 
-                      signOut={handleSignOut}
-                    />
-                  } 
-                />
-              </Routes>
-            </Router>
+            // 🎯 ImageProviderでアプリ全体をラップ
+            <ImageProvider>
+              <Router>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/chat" replace />} />
+                  <Route 
+                    path="/chat" 
+                    element={
+                      <ChatPage 
+                        user={user} 
+                        signOut={handleSignOut}
+                      />
+                    } 
+                  />
+                  <Route 
+                    path="/chat/:chatId" 
+                    element={
+                      <ChatPage 
+                        user={user} 
+                        signOut={handleSignOut}
+                      />
+                    } 
+                  />
+                  <Route 
+                    path="/image" 
+                    element={
+                      <ImageGenerationPage 
+                        user={user} 
+                        signOut={handleSignOut}
+                      />
+                    } 
+                  />
+                </Routes>
+              </Router>
+            </ImageProvider>
           );
         }
         

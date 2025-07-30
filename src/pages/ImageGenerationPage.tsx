@@ -1,8 +1,8 @@
-// src/pages/ImageGenerationPage.tsx - パスパラメータ対応版
+// src/pages/ImageGenerationPage.tsx - 履歴削除・シンプル版
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LuArrowLeft, LuHistory } from 'react-icons/lu';
+import { LuArrowLeft } from 'react-icons/lu';
 import { useImageGeneration } from '../hooks/useImageGeneration';
 import { useChat } from '../hooks/useChat';
 import { useSearch } from '../hooks/useSearch';
@@ -41,10 +41,8 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
     isGenerating,
     generatedImages,
     generationError,
-    imageHistory,
     generateImage,
-    clearError,
-    selectHistoryImages
+    clearError
   } = useImageGeneration();
 
   const handleGenerate = async (request: ImageGenerationRequest) => {
@@ -129,7 +127,7 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
             <LuArrowLeft />
             チャットに戻る
           </button>
-          <h1 className="page-title">Nova Canvas画像生成</h1>
+          <h1 className="page-title">画像生成</h1>
           <div style={{ width: '120px' }}></div>
         </div>
 
@@ -148,40 +146,6 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
                 <button onClick={clearError} className="error-close">×</button>
               </div>
             )}
-
-            {/* 履歴 */}
-            {imageHistory.length > 0 && (
-              <div className="image-history">
-                <h3 className="history-title">
-                  <LuHistory />
-                  生成履歴
-                </h3>
-                <div className="history-grid">
-                  {imageHistory.map((item) => (
-                    <div 
-                      key={item.id}
-                      className="history-item"
-                      onClick={() => selectHistoryImages(item)}
-                    >
-                      <img 
-                        src={`data:image/png;base64,${item.images[0].base64}`}
-                        alt={item.prompt}
-                        className="history-thumbnail"
-                      />
-                      <div className="history-info">
-                        <div className="history-prompt">{item.prompt.substring(0, 50)}...</div>
-                        <div className="history-date">
-                          {new Date(item.createdAt).toLocaleString('ja-JP')}
-                        </div>
-                        {item.images.length > 1 && (
-                          <div className="history-count">{item.images.length}枚</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* 右パネル: 画像表示 */}
@@ -190,7 +154,7 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
               <div className="generating-placeholder">
                 <div className="generating-animation">
                   <div className="generating-spinner"></div>
-                  <h3>Nova Canvasで生成中...</h3>
+                  <h3>生成中...</h3>
                   <p>しばらくお待ちください</p>
                 </div>
               </div>
@@ -207,8 +171,8 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
             {!isGenerating && generatedImages.length === 0 && (
               <div className="empty-placeholder">
                 <div className="empty-content">
-                  <h3>Nova Canvas画像生成</h3>
-                  <p>プロンプトを入力してNova Canvasで画像を生成してください</p>
+                  <h3>画像生成</h3>
+                  <p>プロンプトを入力して画像を生成してください</p>
                 </div>
               </div>
             )}

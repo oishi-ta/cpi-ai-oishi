@@ -1,15 +1,17 @@
-// src/hooks/useImageGeneration.ts
+// src/hooks/useImageGeneration.ts - Context統合版
 import { useState } from 'react';
-import type { ImageGenerationRequest, GeneratedImage, GeneratedImageResponse, ImageHistory } from '../types/image';
+import type { ImageGenerationRequest, GeneratedImage, GeneratedImageResponse } from '../types/image';
+import { useImageContext } from '../contexts/ImageContext';
 import { imageApi } from '../services/imageApi';
 import { fetchImageFromPresignedUrl, checkImageSize, calculateBase64Size } from '../utils/imageUtils';
 
 export const useImageGeneration = () => {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [imageHistory, setImageHistory] = useState<ImageHistory[]>([]);
   const [generationProgress, setGenerationProgress] = useState<string>('');
+  
+  // 🎯 Context から画像状態を取得
+  const { generatedImages, setGeneratedImages } = useImageContext();
 
   const generateImage = async (request: ImageGenerationRequest) => {
     try {
@@ -20,7 +22,8 @@ export const useImageGeneration = () => {
       console.log('画像生成開始:', {
         prompt: request.prompt.substring(0, 50) + '...',
         numberOfImages: request.numberOfImages || 1,
-        dimensions: `${request.width || 1024}x${request.height || 1024}`
+        dimensions: `${request.width || 512}x${request.height || 512}`,
+        baseSeed: request.seed
       });
       
       // Lambda Function URL経由で同期処理（S3キーとPresigned URLを取得）
@@ -28,6 +31,19 @@ export const useImageGeneration = () => {
       
       if (response.success && response.images && response.images.length > 0) {
         setGenerationProgress('画像データを取得中...');
+        
+        // 🎯 シード値の検証とログ出力
+        console.log('生成された画像のシード値:', response.images.map(img => ({
+          index: img.index || 0,
+          seed: img.seed
+        })));
+        
+        // 同じシードの画像がないかチェック
+        const seeds = response.images.map(img => img.seed);
+        const uniqueSeeds = new Set(seeds);
+        if (seeds.length > 1 && uniqueSeeds.size < seeds.length) {
+          console.warn('⚠️ 複数画像で同じシードが検出されました:', seeds);
+        }
         
         // Presigned URLまたはS3キーから画像データを取得
         const imagesWithData = await Promise.all(
@@ -115,22 +131,12 @@ export const useImageGeneration = () => {
           console.warn(`${failedCount}枚の画像取得に失敗しましたが、${validImages.length}枚は正常に取得できました`);
         }
         
+        // 🎯 Context の状態を更新（永続化される）
         setGeneratedImages(validImages);
         
-        // 履歴に追加
-        const historyItem: ImageHistory = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          prompt: request.prompt,
-          negativePrompt: request.negativePrompt || '',
-          images: validImages,
-          createdAt: new Date().toISOString()
-        };
-        
-        setImageHistory(prev => [historyItem, ...prev]);
-        
         console.log('画像生成完了:', {
-          historyId: historyItem.id,
-          totalImages: validImages.length
+          totalImages: validImages.length,
+          savedToContext: true
         });
         
         return validImages;
@@ -160,23 +166,16 @@ export const useImageGeneration = () => {
     setGenerationError(null);
   };
 
-  const clearCurrentImages = () => {
-    setGeneratedImages([]);
-  };
-
-  const selectHistoryImages = (historyItem: ImageHistory) => {
-    setGeneratedImages(historyItem.images);
-  };
+  // 🎯 Context の clearImages を使用
+  const { clearImages: clearCurrentImages } = useImageContext();
 
   return {
     isGenerating,
-    generatedImages,
+    generatedImages, // 🎯 Context から取得
     generationError,
-    imageHistory,
     generationProgress,
     generateImage,
     clearError,
-    clearCurrentImages,
-    selectHistoryImages
+    clearCurrentImages
   };
 };

@@ -15,12 +15,12 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [width, setWidth] = useState(1024);
-  const [height, setHeight] = useState(1024);
+  const [width, setWidth] = useState(512);
+  const [height, setHeight] = useState(512);
   const [seed, setSeed] = useState<number | null>(null);
   const [numberOfImages, setNumberOfImages] = useState(1); // 枚数選択を追加
 
-  const validSizes = [512, 768, 1024, 1152, 1216, 1344, 1536];
+  const validSizes = [512, 768, 1024, 1280];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,12 +198,11 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
           {isGenerating ? (
             <>
               <div className="loading-spinner" />
-              Nova Canvasで生成中...
+              生成中...
             </>
           ) : (
             <>
-              <LuImage />
-              Nova Canvasで画像生成
+              画像生成
             </>
           )}
         </button>
