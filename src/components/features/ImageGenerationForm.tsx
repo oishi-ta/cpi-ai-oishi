@@ -52,8 +52,7 @@ const ImageGenerationForm: React.FC<ImageGenerationFormProps> = ({
         {/* メインプロンプト */}
         <div className="form-group">
           <label htmlFor="prompt" className="form-label">
-            <LuImage className="label-icon" />
-            プロンプト *
+            プロンプト 
           </label>
           <textarea
             id="prompt"

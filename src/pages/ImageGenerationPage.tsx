@@ -1,4 +1,5 @@
-// src/pages/ImageGenerationPage.tsx
+// src/pages/ImageGenerationPage.tsx - パスパラメータ対応版
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LuArrowLeft, LuHistory } from 'react-icons/lu';
@@ -9,7 +10,6 @@ import { getUserEmail } from '../utils/auth';
 import Sidebar from '../components/layout/Sidebar';
 import ImageGenerationForm from '../components/features/ImageGenerationForm';
 import MultiImageDisplay from '../components/features/MultiImageDisplay';
-import ImageDisplay from '../components/features/ImageDisplay';
 import type { ImageGenerationRequest } from '../types/image';
 import type { ModelType } from '../types/chat';
 
@@ -31,7 +31,7 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
     chats,
     activeChatId,
     startNewChat,
-    handleChatSelect,
+    handleChatSelect: originalHandleChatSelect,
     handleChatDelete
   } = useChat(user);
   
@@ -71,7 +71,34 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
   };
 
   const handleBackToChat = () => {
-    navigate('/chat');
+    if (activeChatId) {
+      // アクティブなチャットがある場合はそのチャットに戻る
+      navigate(`/chat/${activeChatId}`);
+    } else {
+      // アクティブなチャットがない場合は通常のチャットページに戻る
+      navigate('/chat');
+    }
+  };
+
+  // 🔄 チャット選択時にパスパラメータ形式で遷移
+  const handleChatSelect = (chatId: string) => {
+    // まず元の状態更新を実行
+    originalHandleChatSelect(chatId);
+    
+    // パスパラメータ形式でチャットページに遷移
+    navigate(`/chat/${chatId}`);
+  };
+
+  // 🔄 新しいチャット作成時にもページ遷移
+  const handleNewChat = () => {
+    startNewChat();
+    navigate('/chat'); // 新しいチャットは /chat のみ
+  };
+
+  // 🔄 検索実行時にもページ遷移
+  const handleSearchSubmitWithNavigation = async (query: string) => {
+    await handleSearchSubmit(query);
+    navigate('/chat'); // 検索結果をチャットページで表示
   };
 
   return (
@@ -80,14 +107,14 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
       <Sidebar 
         chats={chats}
         activeChatId={activeChatId}
-        onNewChat={startNewChat}
-        onChatSelect={handleChatSelect}
+        onNewChat={handleNewChat}
+        onChatSelect={handleChatSelect} // パスパラメータ対応
         onChatDelete={handleChatDelete}
         userEmail={userEmail}
         onSignOut={signOut}
         model={model}
         onModelChange={setModel}
-        onSearchSubmit={handleSearchSubmit}
+        onSearchSubmit={handleSearchSubmitWithNavigation}
       />
       
       {/* メインコンテンツ */}
@@ -180,7 +207,6 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
             {!isGenerating && generatedImages.length === 0 && (
               <div className="empty-placeholder">
                 <div className="empty-content">
-                  <div className="empty-icon">🎨</div>
                   <h3>Nova Canvas画像生成</h3>
                   <p>プロンプトを入力してNova Canvasで画像を生成してください</p>
                 </div>

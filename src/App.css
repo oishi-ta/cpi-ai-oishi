@@ -2193,13 +2193,12 @@ button:focus-visible {
 
 /* 画像表示パネル */
 .image-display-panel {
-  flex: 1;
+  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: var(--background-main);
   overflow: auto;
+  width: 100%;
 }
 
 .image-display {
@@ -2561,18 +2560,25 @@ button:focus-visible {
 
 /* メイン画像表示 */
 .main-image-container {
-  width: 100%;
-  max-width: 600px;
-  border-radius: var(--radius-lg);
+  position: relative;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: fit-content !important;
+  margin: 0 auto !important;
+  background: transparent !important; /* 黒い背景を削除 */
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .main-generated-image {
-  width: 100%;
-  height: auto;
-  display: block;
+  width: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: 600px !important;
+  display: block !important;
+  border-radius: 12px;
 }
 
 /* サムネイル一覧 */

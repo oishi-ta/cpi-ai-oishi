@@ -99,22 +99,19 @@ const PresignedOnlyImage: React.FC<PresignedOnlyImageProps> = ({
   }, [expiresAt]);
   
   // 🔄 ローディング状態
-  if (isLoading && !presignedUrl) {
+    if (isLoading && !presignedUrl) {
     return (
-      <div className={`image-loading ${className}`} style={{ 
+        <div className={`image-loading ${className}`} style={{ 
         padding: '20px', 
         border: '1px solid #ddd', 
         borderRadius: '8px',
         color: '#666',
         textAlign: 'center',
         backgroundColor: '#f9f9f9'
-      }}>
-        <div style={{ marginBottom: '8px' }}>🔄</div>
-        Presigned URL生成中...<br />
-        <small>{safeFileName}</small>
-      </div>
+        }}>
+        </div>
     );
-  }
+    }
   
   // ❌ エラー状態
   if (error && !presignedUrl) {

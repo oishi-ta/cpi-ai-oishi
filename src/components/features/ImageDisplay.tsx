@@ -1,6 +1,7 @@
-// src/components/features/ImageDisplay.tsx
+// src/components/features/ImageDisplay.tsx - モーダル削除版
+
 import React, { useState } from 'react';
-import { LuDownload, LuCopy, LuInfo, LuRefreshCw } from 'react-icons/lu';
+import { LuDownload, LuRefreshCw } from 'react-icons/lu'; // LuInfo削除
 import type { GeneratedImage } from '../../types/image';
 
 interface ImageDisplayProps {
@@ -15,7 +16,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   className = ''
 }) => {
   const [copiedInfo, setCopiedInfo] = useState<string | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  // const [showDetails, setShowDetails] = useState(false); // 詳細表示モーダル削除
 
   const handleDownload = () => {
     try {
@@ -77,13 +78,6 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
             >
               <LuDownload />
             </button>
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="action-button info"
-              title="詳細情報"
-            >
-              <LuInfo />
-            </button>
             {onRegenerate && (
               <button
                 onClick={handleRegenerate}
@@ -97,67 +91,25 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
         </div>
       </div>
 
-      {/* 詳細情報 */}
-      {showDetails && (
-        <div className="image-details">
-          <div className="detail-group">
-            <div className="detail-label">プロンプト</div>
-            <div className="detail-content">
-              <span className="detail-text">{image.prompt}</span>
-              <button
-                onClick={() => handleCopy(image.prompt, 'prompt')}
-                className="copy-button"
-                title="プロンプトをコピー"
-              >
-                {copiedInfo === 'prompt' ? '✓' : <LuCopy />}
-              </button>
-            </div>
-          </div>
-
-          {image.negativePrompt && (
-            <div className="detail-group">
-              <div className="detail-label">ネガティブプロンプト</div>
-              <div className="detail-content">
-                <span className="detail-text">{image.negativePrompt}</span>
-                <button
-                  onClick={() => handleCopy(image.negativePrompt, 'negative')}
-                  className="copy-button"
-                  title="ネガティブプロンプトをコピー"
-                >
-                  {copiedInfo === 'negative' ? '✓' : <LuCopy />}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="detail-row">
-            <div className="detail-group">
-              <div className="detail-label">サイズ</div>
-              <div className="detail-value">{image.width} × {image.height}</div>
-            </div>
-            <div className="detail-group">
-              <div className="detail-label">シード</div>
-              <div className="detail-content">
-                <span className="detail-value">{image.seed}</span>
-                <button
-                  onClick={() => handleCopy(image.seed.toString(), 'seed')}
-                  className="copy-button"
-                  title="シードをコピー"
-                >
-                  {copiedInfo === 'seed' ? '✓' : <LuCopy />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="detail-group">
-            <div className="detail-label">生成日時</div>
-            <div className="detail-value">
-              {new Date(image.generatedAt).toLocaleString('ja-JP')}
-            </div>
-          </div>
+      {/* 簡潔な画像情報（モーダルなし） */}
+      <div className="image-simple-info" style={{
+        marginTop: '12px',
+        padding: '12px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        fontSize: '12px',
+        color: '#666'
+      }}>
+        <div style={{ marginBottom: '4px' }}>
+          <strong>シード:</strong> {image.seed}
         </div>
-      )}
+        <div style={{ marginBottom: '4px' }}>
+          <strong>サイズ:</strong> {image.width} × {image.height}
+        </div>
+        <div>
+          <strong>生成日時:</strong> {new Date(image.generatedAt).toLocaleString('ja-JP')}
+        </div>
+      </div>
     </div>
   );
 };

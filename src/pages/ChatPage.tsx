@@ -1,5 +1,7 @@
+// src/pages/ChatPage.tsx - パスパラメータ対応版
+
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom'; // useParamsを追加
 import type { ChatMode, ModelType } from '../types/chat';
 import { useChat } from '../hooks/useChat';
 import { useFileUpload } from '../hooks/useFileUpload';
@@ -15,7 +17,8 @@ interface ChatPageProps {
 }
 
 function ChatPage({ user, signOut }: ChatPageProps) {
-  const [searchParams] = useSearchParams();
+  const { chatId } = useParams<{ chatId?: string }>(); // パスパラメータを取得
+  const navigate = useNavigate();
   
   const [prompt, setPrompt] = useState<string>('');
   const [mode, setMode] = useState<ChatMode>('general');
@@ -58,16 +61,15 @@ function ChatPage({ user, signOut }: ChatPageProps) {
   // 認証済みユーザーの情報取得
   const userEmail = getUserEmail(user);
 
-  // URL パラメータからチャットIDを取得してアクティブにする
+  // 📍 URLパラメータからチャットIDを取得してアクティブにする
   useEffect(() => {
-    const chatIdFromUrl = searchParams.get('chatId');
-    if (chatIdFromUrl && chats.length > 0) {
-      const targetChat = chats.find(chat => chat.id === chatIdFromUrl);
-      if (targetChat && activeChatId !== chatIdFromUrl) {
-        handleChatSelect(chatIdFromUrl);
+    if (chatId && chats.length > 0) {
+      const targetChat = chats.find(chat => chat.id === chatId);
+      if (targetChat && activeChatId !== chatId) {
+        handleChatSelect(chatId);
       }
     }
-  }, [searchParams, chats, activeChatId, handleChatSelect]);
+  }, [chatId, chats, activeChatId, handleChatSelect]);
 
   // モバイルサイドバー制御
   const toggleMobileSidebar = () => {
@@ -105,12 +107,12 @@ function ChatPage({ user, signOut }: ChatPageProps) {
   };
 
   // 検索結果クリックハンドラー
-  const handleSearchResultClick = (chatId: string) => {
+  const handleSearchResultClick = (resultChatId: string) => {
     // 検索モードを終了
     exitSearchMode();
     
-    // チャットを選択
-    handleChatSelect(chatId);
+    // URLを更新してチャットを選択
+    navigate(`/chat/${resultChatId}`);
   };
 
   // メッセージ送信処理
@@ -135,15 +137,20 @@ function ChatPage({ user, signOut }: ChatPageProps) {
     setPrompt('');
     handleFileRemove();
     closeMobileSidebar();
+    
+    // URLを新しいチャット用に更新
+    navigate('/chat');
   };
 
-  // チャット選択（検索モード終了対応）
-  const handleChatSelectWithSearchExit = (chatId: string) => {
+  // チャット選択（URL更新対応）
+  const handleChatSelectWithNavigation = (selectedChatId: string) => {
     // 検索モードを終了
     exitSearchMode();
     
-    handleChatSelect(chatId);
     closeMobileSidebar();
+    
+    // URLを更新してチャットを選択
+    navigate(`/chat/${selectedChatId}`);
   };
 
   // 全モデル対応版：制約なしのモデル変更
@@ -162,7 +169,7 @@ function ChatPage({ user, signOut }: ChatPageProps) {
         chats={chats}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
-        onChatSelect={handleChatSelectWithSearchExit}
+        onChatSelect={handleChatSelectWithNavigation} // 修正済み
         onChatDelete={handleChatDelete}
         userEmail={userEmail}
         onSignOut={handleSignOutRequest}

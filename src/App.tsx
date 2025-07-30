@@ -316,6 +316,15 @@ function App() {
                   } 
                 />
                 <Route 
+                  path="/chat/:chatId" 
+                  element={
+                    <ChatPage 
+                      user={user} 
+                      signOut={handleSignOut}
+                    />
+                  } 
+                />
+                <Route 
                   path="/image" 
                   element={
                     <ImageGenerationPage 
