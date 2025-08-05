@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LuChevronDown } from 'react-icons/lu';
 import type { ModelType } from '../../types/chat';
 import { MODEL_OPTIONS, getModelDisplayName, getModelDescription } from '../../constants/models';
@@ -11,6 +12,7 @@ interface ModelSelectorProps {
 const ModelSelector: React.FC<ModelSelectorProps> = ({ model, onModelChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // 外部クリックでドロップダウンを閉じる
   useEffect(() => {
@@ -25,6 +27,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ model, onModelChange }) =
   }, []);
 
   const handleOptionClick = (selectedModel: string) => {
+    // Nova Canvasが選択された場合は画像生成ページへ遷移
+    if (selectedModel === 'nova-canvas') {
+      setIsOpen(false);
+      navigate('/image');
+      return;
+    }
+    
+    // 通常のモデル選択
     onModelChange(selectedModel as ModelType);
     setIsOpen(false);
   };
@@ -51,7 +61,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ model, onModelChange }) =
                 {group.models.map((modelId) => (
                   <div
                     key={modelId}
-                    className={`option-item ${model === modelId ? 'selected' : ''}`}
+                    className={`option-item ${model === modelId ? 'selected' : ''} ${modelId === 'nova-canvas' ? 'nova-canvas-option' : ''}`}
                     onClick={() => handleOptionClick(modelId)}
                   >
                     <div className="option-name">{getModelDisplayName(modelId)}</div>

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 🎯 追加
 import { LuPlus, LuTrash2, LuEllipsis } from 'react-icons/lu';
 import type { ChatThread, ModelType } from '../../types/chat';
 import ModelSelector from '../features/ModelSelector';
@@ -32,7 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onModelChange,
   onSearchSubmit
 }) => {
-  const navigate = useNavigate(); // 🎯 React Router のナビゲーション
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   
@@ -78,11 +76,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     setActiveMenuId(null);
   };
 
-  // 🎯 画像生成ページへの遷移（SPAナビゲーション）
-  const handleImageGenerationClick = () => {
-    navigate('/image');
-  };
-
   return (
     <>
       <aside className={`sidebar ${className}`}>
@@ -96,16 +89,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
 
         <SearchInput onSearchSubmit={onSearchSubmit} />
-        
-        {/* Nova Canvas画像生成ボタン - 修正版 */}
-        <div className="image-generation-nav">
-          <button 
-            onClick={handleImageGenerationClick} // 🎯 SPAナビゲーション
-            className="image-generation-button"
-          >
-            画像生成
-          </button>
-        </div>
 
         <button onClick={onNewChat} className="new-chat-button">
           <LuPlus />
