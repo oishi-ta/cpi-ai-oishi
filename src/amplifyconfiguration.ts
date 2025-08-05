@@ -3,14 +3,14 @@ import type { ResourcesConfig } from 'aws-amplify';
 const amplifyConfig: ResourcesConfig = {
   Auth: {
     Cognito: {
-      userPoolId: 'ap-northeast-1_LuvUmWDZ4',
-      userPoolClientId: '1io057uu2e3jobtl0rsggpc3js',
+      userPoolId: import.meta.env.VITE_APP_USER_POOL_ID,
+      userPoolClientId: import.meta.env.VITE_APP_USER_POOL_CLIENT_ID,
       loginWith: {
         oauth: {
-          domain: 'ap-northeast-1luvumwdz4.auth.ap-northeast-1.amazoncognito.com',
+          domain: import.meta.env.VITE_APP_COGNITO_DOMAIN,
           scopes: ['openid', 'email', 'phone'],
-          redirectSignIn: ['http://localhost:5173'],
-          redirectSignOut: ['http://localhost:5173'],
+          redirectSignIn: [import.meta.env.VITE_APP_REDIRECT_URI],
+          redirectSignOut: [import.meta.env.VITE_APP_POST_LOGOUT_REDIRECT_URI],
           responseType: 'code'
         }
       }
