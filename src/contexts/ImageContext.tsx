@@ -1,4 +1,4 @@
-// src/contexts/ImageContext.tsx - フォーム状態対応版
+// src/contexts/ImageContext.tsx - コンソールログ削除版
 import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { GeneratedImage } from '../types/image';
@@ -44,24 +44,16 @@ export const ImageProvider: React.FC<ImageProviderProps> = ({ children }) => {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [formState, setFormState] = useState<ImageFormState>(defaultFormState);
 
-  console.log('🎯 ImageProvider rendered:', {
-    imageCount: generatedImages.length,
-    formPrompt: formState.prompt.substring(0, 20) + (formState.prompt.length > 20 ? '...' : '')
-  });
-
   const clearImages = () => {
     setGeneratedImages([]);
-    console.log('画像状態をクリア');
   };
 
   const updateFormState = (updates: Partial<ImageFormState>) => {
     setFormState(prev => ({ ...prev, ...updates }));
-    console.log('フォーム状態更新:', updates);
   };
 
   const clearFormState = () => {
     setFormState(defaultFormState);
-    console.log('フォーム状態をクリア');
   };
 
   const contextValue: ImageContextType = {
@@ -83,15 +75,11 @@ export const ImageProvider: React.FC<ImageProviderProps> = ({ children }) => {
 
 // 基本的なuseContextを使用
 export const useImageContext = (): ImageContextType => {
-  console.log('🔍 useImageContext called');
-  
   const context = useContext(ImageContext);
   
   if (context === undefined) {
-    console.error('❌ useImageContext must be used within an ImageProvider');
     throw new Error('useImageContext must be used within an ImageProvider');
   }
   
-  console.log('✅ useImageContext success - images:', context.generatedImages.length, 'prompt:', context.formState.prompt.substring(0, 10));
   return context;
 };

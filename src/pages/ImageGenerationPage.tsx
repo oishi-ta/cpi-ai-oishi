@@ -1,11 +1,12 @@
-// src/pages/ImageGenerationPage.tsx - 履歴削除・シンプル版
+// src/pages/ImageGenerationPage.tsx - useLocalStorage対応版
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LuArrowLeft } from 'react-icons/lu';
 import { useImageGeneration } from '../hooks/useImageGeneration';
 import { useChat } from '../hooks/useChat';
 import { useSearch } from '../hooks/useSearch';
+import useLocalStorage from '../hooks/useLocalStorage'; // 🎯 追加
 import { getUserEmail } from '../utils/auth';
 import Sidebar from '../components/layout/Sidebar';
 import ImageGenerationForm from '../components/features/ImageGenerationForm';
@@ -24,7 +25,20 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
 }) => {
   const navigate = useNavigate();
   const userEmail = getUserEmail(user);
-  const [model, setModel] = useState<ModelType>('nova-lite');
+  
+  // 🎯 useLocalStorageで状態管理（ChatPageと同じキーを使用して同期）
+  const [model, setModel] = useLocalStorage<ModelType>('cpi-chat-model', 'nova-lite');
+
+  // 🎯 Nova Canvas以外のモデルが選択された時の処理
+  const handleModelChange = (newModel: ModelType) => {
+    setModel(newModel);
+    
+    // Nova Canvas以外が選択された場合は新しいチャットに遷移
+    if (newModel !== 'nova-canvas') {
+      startNewChat(); // 新しいチャットを開始
+      navigate('/chat'); // チャットページに遷移
+    }
+  };
   
   // チャット機能のフック
   const {
@@ -70,54 +84,49 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
 
   const handleBackToChat = () => {
     if (activeChatId) {
-      // アクティブなチャットがある場合はそのチャットに戻る
       navigate(`/chat/${activeChatId}`);
     } else {
-      // アクティブなチャットがない場合は通常のチャットページに戻る
       navigate('/chat');
     }
   };
 
-  // 🔄 チャット選択時にパスパラメータ形式で遷移
   const handleChatSelect = (chatId: string) => {
-    // まず元の状態更新を実行
-    originalHandleChatSelect(chatId);
+    // 🎯 履歴スレッド選択時はデフォルトモデルに変更
+    setModel('nova-lite'); // デフォルトモデルに変更
     
-    // パスパラメータ形式でチャットページに遷移
+    originalHandleChatSelect(chatId);
     navigate(`/chat/${chatId}`);
   };
 
-  // 🔄 新しいチャット作成時にもページ遷移
   const handleNewChat = () => {
+    // 🎯 新しいチャット作成時もデフォルトモデルに変更
+    setModel('nova-lite');
+    
     startNewChat();
-    navigate('/chat'); // 新しいチャットは /chat のみ
+    navigate('/chat');
   };
 
-  // 🔄 検索実行時にもページ遷移
   const handleSearchSubmitWithNavigation = async (query: string) => {
     await handleSearchSubmit(query);
-    navigate('/chat'); // 検索結果をチャットページで表示
+    navigate('/chat');
   };
 
   return (
     <div className="app-layout">
-      {/* サイドバー */}
       <Sidebar 
         chats={chats}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
-        onChatSelect={handleChatSelect} // パスパラメータ対応
+        onChatSelect={handleChatSelect}
         onChatDelete={handleChatDelete}
         userEmail={userEmail}
         onSignOut={signOut}
         model={model}
-        onModelChange={setModel}
+        onModelChange={handleModelChange} // 🎯 カスタムハンドラーを使用
         onSearchSubmit={handleSearchSubmitWithNavigation}
       />
       
-      {/* メインコンテンツ */}
       <main className="main-content">
-        {/* ヘッダー */}
         <div className="image-page-header">
           <button 
             onClick={handleBackToChat}
@@ -132,14 +141,12 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
         </div>
 
         <div className="image-page-content">
-          {/* 左パネル: フォーム */}
           <div className="image-form-panel">
             <ImageGenerationForm
               onGenerate={handleGenerate}
               isGenerating={isGenerating}
             />
 
-            {/* エラー表示 */}
             {generationError && (
               <div className="error-message">
                 <span>❌ {generationError}</span>
@@ -148,7 +155,6 @@ const ImageGenerationPage: React.FC<ImageGenerationPageProps> = ({
             )}
           </div>
 
-          {/* 右パネル: 画像表示 */}
           <div className="image-display-panel">
             {isGenerating && (
               <div className="generating-placeholder">

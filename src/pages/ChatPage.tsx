@@ -1,11 +1,12 @@
-// src/pages/ChatPage.tsx - パスパラメータ対応版
+// src/pages/ChatPage.tsx - useLocalStorage対応版
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // useParamsを追加
+import { useParams, useNavigate } from 'react-router-dom';
 import type { ChatMode, ModelType } from '../types/chat';
 import { useChat } from '../hooks/useChat';
 import { useFileUpload } from '../hooks/useFileUpload';
 import { useSearch } from '../hooks/useSearch';
+import useLocalStorage from '../hooks/useLocalStorage'; // 🎯 追加
 import { getUserEmail } from '../utils/auth';
 import Sidebar from '../components/layout/Sidebar';
 import MainContent from '../components/layout/MainContent';
@@ -17,12 +18,15 @@ interface ChatPageProps {
 }
 
 function ChatPage({ user, signOut }: ChatPageProps) {
-  const { chatId } = useParams<{ chatId?: string }>(); // パスパラメータを取得
+  const { chatId } = useParams<{ chatId?: string }>();
   const navigate = useNavigate();
   
   const [prompt, setPrompt] = useState<string>('');
-  const [mode, setMode] = useState<ChatMode>('general');
-  const [model, setModel] = useState<ModelType>('nova-lite');
+  
+  // 🎯 useLocalStorageで状態管理（リロード後も保持される）
+  const [mode, setMode] = useLocalStorage<ChatMode>('cpi-chat-mode', 'general');
+  const [model, setModel] = useLocalStorage<ModelType>('cpi-chat-model', 'nova-lite');
+  
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
 
@@ -69,7 +73,8 @@ function ChatPage({ user, signOut }: ChatPageProps) {
         handleChatSelect(chatId);
       }
     }
-  }, [chatId, chats, activeChatId, handleChatSelect]);
+    // 🎯 URLにchatIdがない場合の処理は削除（新しいチャットボタンでのみ実行）
+  }, [chatId, chats]);
 
   // モバイルサイドバー制御
   const toggleMobileSidebar = () => {
@@ -102,16 +107,12 @@ function ChatPage({ user, signOut }: ChatPageProps) {
   // 検索実行ハンドラー（モバイルサイドバー自動クローズ対応）
   const handleSearchSubmitWithMobileClose = async (query: string) => {
     await handleSearchSubmit(query);
-    // モバイルサイドバーを閉じる
     setIsMobileSidebarOpen(false);
   };
 
   // 検索結果クリックハンドラー
   const handleSearchResultClick = (resultChatId: string) => {
-    // 検索モードを終了
     exitSearchMode();
-    
-    // URLを更新してチャットを選択
     navigate(`/chat/${resultChatId}`);
   };
 
@@ -120,42 +121,27 @@ function ChatPage({ user, signOut }: ChatPageProps) {
     const currentPrompt = prompt;
     const currentFile = attachedFile;
     
-    // 入力をクリア
     setPrompt('');
     handleFileRemove();
     
-    // メッセージ送信
     await handleSendMessage(currentPrompt, mode, model, currentFile);
   };
 
   // 新しいチャット開始
   const handleNewChat = () => {
-    // 検索モードを終了
     exitSearchMode();
-    
     startNewChat();
     setPrompt('');
     handleFileRemove();
     closeMobileSidebar();
-    
-    // URLを新しいチャット用に更新
     navigate('/chat');
   };
 
   // チャット選択（URL更新対応）
   const handleChatSelectWithNavigation = (selectedChatId: string) => {
-    // 検索モードを終了
     exitSearchMode();
-    
     closeMobileSidebar();
-    
-    // URLを更新してチャットを選択
     navigate(`/chat/${selectedChatId}`);
-  };
-
-  // 全モデル対応版：制約なしのモデル変更
-  const handleModelChange = (newModel: ModelType) => {
-    setModel(newModel);
   };
 
   return (
@@ -169,13 +155,13 @@ function ChatPage({ user, signOut }: ChatPageProps) {
         chats={chats}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
-        onChatSelect={handleChatSelectWithNavigation} // 修正済み
+        onChatSelect={handleChatSelectWithNavigation}
         onChatDelete={handleChatDelete}
         userEmail={userEmail}
         onSignOut={handleSignOutRequest}
         className={isMobileSidebarOpen ? 'mobile-open' : ''}
         model={model}
-        onModelChange={handleModelChange}
+        onModelChange={setModel} // 🎯 useLocalStorageのsetterを直接使用
         onSearchSubmit={handleSearchSubmitWithMobileClose}
       />
       
@@ -187,7 +173,7 @@ function ChatPage({ user, signOut }: ChatPageProps) {
         onSendMessage={handleSendPrompt}
         onStopGeneration={handleStopGeneration}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={setMode} // 🎯 useLocalStorageのsetterを直接使用
         onToggleSidebar={toggleMobileSidebar}
         isMobileSidebarOpen={isMobileSidebarOpen}
         attachedFile={attachedFile}
@@ -198,7 +184,6 @@ function ChatPage({ user, signOut }: ChatPageProps) {
           progress: uploadProgress,
           error: uploadError
         }}
-        // 検索関連のプロパティ
         searchResults={searchResults}
         searchQuery={searchQuery}
         isSearching={isSearching}

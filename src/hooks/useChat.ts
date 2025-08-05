@@ -1,4 +1,4 @@
-// src/hooks/useChat.ts - 画像復元処理を大幅簡素化
+// src/hooks/useChat.ts - 回答完了後サイドバー追加版
 
 import { useState, useEffect, useRef } from 'react';
 import type { ChatThread, Message, SSEMessage, ChatListItem, ModelType, ChatMode } from '../types/chat';
@@ -6,8 +6,9 @@ import type { FileAttachment } from '../types/file';
 import { chatApi } from '../services/chatApi';
 
 export const useChat = (user: any) => {
-  const [chats, setChats] = useState<ChatThread[]>([]);
+  const [chats, setChats] = useState<ChatThread[]>([]); // サイドバー用チャット一覧
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeMessages, setActiveMessages] = useState<Message[]>([]); // 表示用メッセージ（分離）
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
 
@@ -38,23 +39,13 @@ export const useChat = (user: any) => {
     fetchChatList();
   }, [user]);
 
-  // 🎯 履歴取得関数（大幅簡素化）
+  // 履歴取得関数（簡素化）
   const fetchChatHistory = async (chatId: string) => {
     try {
       const messages: Message[] = await chatApi.fetchChatHistory(chatId);
       
-      // 🚀 画像復元処理は不要！
-      // PresignedOnlyImageコンポーネントがs3Keyから自動的に画像を表示するため
-      // 複雑な画像復元処理を完全削除
-      
-      // そのままメッセージを設定
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat.id === chatId ? { ...chat, messages } : chat
-        )
-      );
-      
-      console.log(`チャット履歴取得完了: ${messages.length}件のメッセージ`);
+      // サイドバーのchatsではなく、activeMessagesに直接設定
+      setActiveMessages(messages);
       
     } catch (error) {
       console.error("チャット履歴の取得に失敗しました:", error);
@@ -63,13 +54,16 @@ export const useChat = (user: any) => {
 
   // アクティブチャット変更時の履歴取得
   useEffect(() => {
-    if (activeChatId) {
-      const activeChat = chats.find(c => c.id === activeChatId);
-      if (activeChat && activeChat.messages.length === 0) {
-        fetchChatHistory(activeChatId);
-      }
+    if (activeChatId && !activeChatId.startsWith('streaming-')) {
+      // 正式なチャットIDの場合のみ履歴取得
+      fetchChatHistory(activeChatId);
+    } else if (activeChatId && activeChatId.startsWith('streaming-')) {
+      // 新規チャット（streaming）の場合は既にactiveMessagesに設定済み
+    } else {
+      // activeChatId がnullの場合はメッセージをクリア
+      setActiveMessages([]);
     }
-  }, [activeChatId, chats]);
+  }, [activeChatId]); // chatsを依存配列から削除
 
   // チャット削除ハンドラー
   const handleChatDelete = async (chatId: string) => {
@@ -87,6 +81,7 @@ export const useChat = (user: any) => {
         // 削除されたチャットがアクティブだった場合、アクティブチャットをクリア
         if (activeChatId === chatId) {
           setActiveChatId(null);
+          setActiveMessages([]); // activeMessagesもクリア
         }
       } else {
         alert('チャットの削除に失敗しました。');
@@ -102,25 +97,18 @@ export const useChat = (user: any) => {
   // 停止機能
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
-      console.log('Generation stopped by user');
       abortControllerRef.current.abort();
       setIsLoading(false);
       
       // 停止メッセージを追加
       if (currentStreamingMessageIdRef.current) {
-        setChats(prevChats => prevChats.map(chat => {
-          const targetChatId = activeChatId || `streaming-${currentStreamingMessageIdRef.current?.split('-')[0]}`;
-          if (chat.id !== targetChatId) return chat;
-          
-          return {
-            ...chat,
-            messages: chat.messages.map(msg => 
-              msg.id === currentStreamingMessageIdRef.current && msg.role === 'assistant'
-                ? { ...msg, content: msg.content + '\n\n[生成が停止されました]' }
-                : msg
-            )
-          };
-        }));
+        setActiveMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === currentStreamingMessageIdRef.current && msg.role === 'assistant'
+              ? { ...msg, content: msg.content + '\n\n[生成が停止されました]' }
+              : msg
+          )
+        );
       }
       
       abortControllerRef.current = null;
@@ -181,7 +169,7 @@ export const useChat = (user: any) => {
       }
     }
 
-    // 🎯 ユーザーメッセージ（簡素化）
+    // ユーザーメッセージ（簡素化）
     const userMessage: Message = { 
       id: userMessageId,
       role: 'user', 
@@ -190,7 +178,7 @@ export const useChat = (user: any) => {
         fileName: currentFile.fileName,
         fileType: currentFile.fileType,
         size: currentFile.size,
-        s3Key: currentFile.s3Key  // 🚀 s3Keyのみが重要！
+        s3Key: currentFile.s3Key
       } : undefined
     };
 
@@ -209,28 +197,22 @@ export const useChat = (user: any) => {
     }
 
     if (isNewChat) {
-      // 新しいチャットの場合、一時的にメッセージを表示するためのチャットを作成
-      const tempChat: ChatThread = {
-        id: `streaming-${userMessageId}`,
-        title: chatTitle + '...',
-        messages: [userMessage, assistantPlaceholder]
-      };
+      // 🎯 新規チャットの場合、activeMessagesに直接設定（サイドバーには追加しない）
+      const tempChatId = `streaming-${userMessageId}`;
+      setActiveChatId(tempChatId);
+      setActiveMessages([userMessage, assistantPlaceholder]);
       
-      setChats(prev => [tempChat, ...prev]);
-      setActiveChatId(tempChat.id);
     } else {
-      // 既存チャットの場合、メッセージを追加
-      setChats(prev => prev.map(chat => {
-        if (chat.id !== activeChatId) return chat;
-        
+      // 既存チャットの場合、activeMessagesに追加
+      setActiveMessages(prev => {
         // 既存のメッセージIDと重複しないかチェック
-        const existingIds = chat.messages.map(msg => msg.id);
+        const existingIds = prev.map(msg => msg.id);
         if (existingIds.includes(userMessageId) || existingIds.includes(assistantMessageId)) {
-          return chat;
+          return prev;
         }
         
-        return { ...chat, messages: [...chat.messages, userMessage, assistantPlaceholder] };
-      }));
+        return [...prev, userMessage, assistantPlaceholder];
+      });
     }
 
     // AbortController管理
@@ -281,24 +263,18 @@ export const useChat = (user: any) => {
                 const message: SSEMessage = JSON.parse(jsonData);
                 
                 if (message.type === 'message') {
-                  setChats(prevChats => prevChats.map(chat => {
-                    const targetChatId = isNewChat ? `streaming-${userMessageId}` : activeChatId;
-                    if (chat.id !== targetChatId) return chat;
-                    
-                    // 特定のアシスタントメッセージのみ更新
-                    const lastMessage = chat.messages[chat.messages.length - 1];
+                  // activeMessagesを直接更新
+                  setActiveMessages(prevMessages => {
+                    const lastMessage = prevMessages[prevMessages.length - 1];
                     if (lastMessage?.role === 'assistant' && lastMessage?.id === assistantMessageId) {
                       const updatedLastMessage = { 
                         ...lastMessage, 
                         content: lastMessage.content + message.data 
                       };
-                      return { 
-                        ...chat, 
-                        messages: [...chat.messages.slice(0, -1), updatedLastMessage] 
-                      };
+                      return [...prevMessages.slice(0, -1), updatedLastMessage];
                     }
-                    return chat;
-                  }));
+                    return prevMessages;
+                  });
                 }
               } catch (e) {
                 console.error("SSEメッセージの解析に失敗しました:", e);
@@ -315,24 +291,13 @@ export const useChat = (user: any) => {
                     const newChatData = JSON.parse(eventData);
                     
                     if (isNewChat) {
-                      // 🚀 新しいチャットの処理（簡素化）
+                      // 🎯 サイドバーに正式なチャットを追加
+                      setChats(prev => [newChatData, ...prev]);
                       
-                      // 画像復元処理は不要！
-                      // PresignedOnlyImageが自動的にs3Keyから画像を表示するため
-                      
-                      // そのままデータを使用
-                      setChats(prev => {
-                        const streamingIndex = prev.findIndex(c => c.id === `streaming-${userMessageId}`);
-                        if (streamingIndex !== -1) {
-                          const updatedChats = [...prev];
-                          updatedChats[streamingIndex] = newChatData;
-                          return updatedChats;
-                        } else {
-                          return [newChatData, ...prev];
-                        }
-                      });
-                      
+                      // activeChatIdを正式なIDに変更
                       setActiveChatId(newChatData.id);
+                      
+                      // activeMessagesは既に設定済みなのでそのまま
                     }
                   } else if (eventType === 'error') {
                     const errorData = JSON.parse(eventData);
@@ -359,12 +324,13 @@ export const useChat = (user: any) => {
       }
 
     } catch (error) {
-      console.error("SSEリクエストエラー:", error);
       setIsLoading(false);
       
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('Request was aborted');
+        return;
       }
+
+      console.error("SSEリクエストエラー:", error);
       
       if (activeChatId) {
         setActiveChatId(activeChatId);
@@ -376,11 +342,21 @@ export const useChat = (user: any) => {
 
   const startNewChat = () => {
     setActiveChatId(null);
+    setActiveMessages([]);
+    
+    // 進行中の生成があれば停止
+    if (isLoading && abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsLoading(false);
+      abortControllerRef.current = null;
+      currentStreamingMessageIdRef.current = null;
+    }
   };
 
   const handleChatSelect = (chatId: string) => {
     if (chatId !== activeChatId) {
       setActiveChatId(chatId);
+      // activeMessagesは useEffect で自動更新される
     }
   };
 
@@ -393,12 +369,10 @@ export const useChat = (user: any) => {
     };
   }, []);
 
-  const activeMessages = chats.find(chat => chat.id === activeChatId)?.messages || [];
-
   return {
     chats,
     activeChatId,
-    activeMessages,
+    activeMessages, // 分離されたactiveMessages
     isLoading,
     isDeletingChat,
     startNewChat,

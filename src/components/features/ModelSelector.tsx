@@ -31,7 +31,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ model, onModelChange }) =
     if (selectedModel === 'nova-canvas') {
       setIsOpen(false);
       navigate('/image');
-      return;
     }
     
     // 通常のモデル選択
