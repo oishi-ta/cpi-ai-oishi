@@ -276,7 +276,7 @@ function App() {
               borderRadius: '8px 8px 0 0'
             }}>
               <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold' }}>
-                CPI社内文書AI
+                RagChat
               </h1>
             </div>
           );

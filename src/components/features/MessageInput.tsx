@@ -198,7 +198,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               ? "ご自由に入力してください..."
               : attachedFile 
               ? "画像について質問してください..." 
-              : "ご自由に入力してください... (画像・PDFも添付可、最大3.75MB)"
+              : "ご自由に入力してください... "
           }
           disabled={isLoading || uploadProgress.isUploading}
           rows={1}

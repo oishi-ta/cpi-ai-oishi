@@ -68,7 +68,7 @@ const MainContent: React.FC<MainContentProps> = ({
         >
           {isMobileSidebarOpen ? <LuX /> : <LuMenu />}
         </button>
-        <div className="mobile-title">CPI社内文書AI</div>
+        <div className="mobile-title">RagChat</div>
         <div style={{ width: '40px' }}></div>
       </div>
 

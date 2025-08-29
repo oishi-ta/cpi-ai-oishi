@@ -80,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <>
       <aside className={`sidebar ${className}`}>
         <div className="sidebar-header">
-          CPI社内文書AI
+          RagChat
         </div>
 
         <ModelSelector 

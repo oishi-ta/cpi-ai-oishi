@@ -3,7 +3,7 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   mode?: 'knowledge_base' | 'general';
-  model?: 'nova-lite' | 'nova-pro' | 'nova-canvas' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4';
+  model?: 'nova-lite' | 'nova-pro' | 'nova-canvas' | 'claude-3-7-sonnet' | 'claude-3-5-sonnet-v2' | 'claude-sonnet-4'| 'gpt-oss-20b'| 'gpt-oss-120b';
   attachment?: {
     fileName: string;
     fileType?: string;
@@ -20,7 +20,7 @@ export interface ChatThread {
 
 export type ChatMode = 'knowledge_base' | 'general';
 
-export type ModelType = 'nova-lite' | 'nova-pro' | 'nova-canvas' | 'claude-3-7-sonnet' | 'claude-sonnet-4';
+export type ModelType = 'nova-lite' | 'nova-pro' | 'nova-canvas' | 'claude-3-7-sonnet' | 'claude-sonnet-4'| 'gpt-oss-20b'| 'gpt-oss-120b';
 
 export type ChatListItem = Omit<ChatThread, 'messages'>;
 

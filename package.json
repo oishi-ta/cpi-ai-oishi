@@ -4,11 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode person.local",
     "_comment_build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "build:develop": "tsc -b && vite build --mode develop",
+    "build:developcdk": "tsc -b && vite build --mode developcdk",
     "build:staging": "tsc -b && vite build --mode staging"
   },
   "dependencies": {
